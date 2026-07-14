@@ -92,7 +92,7 @@ repeat
     wait()
 until game:IsLoaded()
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V1",Text = "loading",Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "V1",Text = "loading",Duration = 3.6})
 
 local gamerawmetatable = getrawmetatable(game)
 setreadonly(gamerawmetatable, false)
@@ -6702,12 +6702,14 @@ crosshairEvent:bindConnection(runservice.RenderStepped, "crosshairEvent", LPH_JI
     crosshair.time = crosshair.time + dt
     crosshair.time2 = (crosshair.time*library.pointers.crosshairSpinSpeed:get())%360
     crosshair.vsize = crosshair.vsize + (3 - crosshair.vsize) * (dt*10)
-    for _, drawing in next, crosshair__drawing do
-        if drawing then
-            if not _:find("outline") then
-                drawing.Color = library.pointers["crosshairColor"]:get().Color
-            else
-                drawing.Color = library.pointers["crosshairOutline"]:get().Color
+    if crosshair__drawing then
+        for _, drawing in next, crosshair__drawing do
+            if drawing then
+                if not _:find("outline") then
+                    drawing.Color = library.pointers["crosshairColor"]:get().Color
+                else
+                    drawing.Color = library.pointers["crosshairOutline"]:get().Color
+                end
             end
         end
     end
@@ -6727,7 +6729,7 @@ crosshairEvent:bindConnection(runservice.RenderStepped, "crosshairEvent", LPH_JI
         }
     }
     
-    if library.pointers.crosshairSpin:get() then
+    if crosshair__drawing and library.pointers.crosshairSpin:get() then
 
         local size__0 = size*crosshair.vsize
         local size__1 = size*(crosshair.vsize-library.pointers.crosshairSeperation:get()) 
@@ -6742,7 +6744,7 @@ crosshairEvent:bindConnection(runservice.RenderStepped, "crosshairEvent", LPH_JI
         local right = setvec2position(2);crosshair__drawing.right.From = right[1];crosshair__drawing.right.To = right[2];crosshair__drawing.rightoutline.From = right[1];crosshair__drawing.rightoutline.To = right[2]
         local top = setvec2position(3);crosshair__drawing.top.From = top[1];crosshair__drawing.top.To = top[2];crosshair__drawing.topoutline.From = top[1];crosshair__drawing.topoutline.To = top[2]
         local bottom = setvec2position(4);crosshair__drawing.bottom.From = bottom[1];crosshair__drawing.bottom.To = bottom[2];crosshair__drawing.bottomoutline.From = bottom[1];crosshair__drawing.bottomoutline.To = bottom[2]
-    else
+    elseif crosshair__drawing then
         local size__0 = size*crosshair.vsize
         local size__1 = size*(crosshair.vsize-library.pointers.crosshairSeperation:get()) 
         local function setvec2position(vec2)
@@ -7033,6 +7035,7 @@ local exploitsMisc = pageMisc:MultiSection({ Sections = {"Exploits"}, Side = "Ri
 --exploitsMisc:Toggle({Name = "Anti-Aimviewer", Default = false, Pointer = "antiaimviewerenabled"})
 exploitsMisc:Toggle({Name = "No Jump Cooldown", Default = false, Pointer = "nojumpcooldownenabled"})
 exploitsMisc:Toggle({Name = "No Slowdown", Default = false, Pointer = "noslowdownenabled"})
+exploitsMisc:Toggle({Name = "Tryhard Animations", Default = false, Pointer = "tryhardanims", Callback = function(v) MISC_CONFIG.TryhardAnimations = v end})
 
 --[[
 local shoot__assetid__audio = "3124331820"
@@ -7501,353 +7504,21 @@ end))
 local aimassistEvent = event:new("aimassistEvent")
 local aimassistPlayer
 local aimassistBool
-aimassistEvent:bindConnection(runservice.RenderStepped, "%aimassistConnection1", LPH_JIT_ULTRA(function()
-    if library.pointers["%enabled"]:get() then
-        if not library.pointers["%locktarget"]:get() then
-            if aimassistPlayer ~= nil and aimassistPlayer.player ~= nil and aimassistPlayer.player.Character ~= nil and aimbot.isAlive(aimassistPlayer.player) then
-                local aimassistKOBool = aimassistPlayer.player.Character.BodyEffects["K.O"].Value ~= nil and aimassistPlayer.player.Character.BodyEffects["K.O"].Value
-                if aimassistKOBool == false then
-                    aimbot.aimat(
-                        aimassistPlayer.player, 
-                        aimassistPlayer.player.Character[library.pointers["%aimpart"]:get()].Position + Vector3.new(aimassistPlayer.player.Character[library.pointers["%aimpart"]:get()].Velocity.X, -0, aimassistPlayer.player.Character[library.pointers["%aimpart"]:get()].Velocity.Z) / library.pointers["%prediction"]:get(), 
-                        library.pointers["%smoothingX"]:get(), 
-                        library.pointers["%smoothingY"]:get(), 
-                        library.pointers["%movementtype"]:get()
-                    )
-                end
-            end
-        end
-    end
-end))
 
-task.spawn(function()
-    while wait() do
-        if library.pointers["%enabled"]:get() then
-            if not library.pointers["%locktarget"]:get() then
-                aimassistPlayer = aimbot.getPlayer(library.pointers["%radius"]:get(), library.pointers["%aimpart"]:get(), library.pointers["%wallcheck"]:get())
-            end
-        end
-    end
-end)
-
-aimassistEvent:bindConnection(userinputservice.InputBegan, "%aimassistConnection2", LPH_JIT_ULTRA(function(input, isrbx)
-    if not isrbx then
-        if library.pointers["%enabled"]:get() and library.pointers["%locktarget"]:get() then
-            if input.KeyCode == library.pointers["%keybind"]:getkeybind() or input.UserInputType == library.pointers["%keybind"]:getkeybind() then
-                aimassistBool = not aimassistBool
-                aimassistPlayer = aimbot.getPlayer(library.pointers["%radius"]:get(), library.pointers["%aimpart"]:get(), library.pointers["%wallcheck"]:get())
-                if aimassistBool then
-                    aimassistEvent:bindConnection(runservice.RenderStepped, "%aimassistConnection0172391", LPH_JIT_ULTRA(function()
-                        if library.pointers["%enabled"]:get() and aimassistBool then
-                            if library.pointers["%locktarget"]:get() then
-                                if aimassistPlayer ~= nil and aimassistPlayer.player ~= nil and aimassistPlayer.player.Character ~= nil and aimbot.isAlive(aimassistPlayer.player) then
-                                    local aimassistKOBool = aimassistPlayer.player.Character.BodyEffects["K.O"].Value ~= nil and aimassistPlayer.player.Character.BodyEffects["K.O"].Value
-                                    if aimassistKOBool == false then
-                                        aimbot.aimat(
-                                            aimassistPlayer.player, 
-                                            aimassistPlayer.player.Character[library.pointers["%aimpart"]:get()].Position + Vector3.new(aimassistPlayer.player.Character[library.pointers["%aimpart"]:get()].Velocity.X, -0, aimassistPlayer.player.Character[library.pointers["%aimpart"]:get()].Velocity.Z) / library.pointers["%prediction"]:get(), 
-                                            library.pointers["%smoothingX"]:get(), 
-                                            library.pointers["%smoothingY"]:get(), 
-                                            library.pointers["%movementtype"]:get()
-                                        )
-                                    end
-                                end
-                            end
-                        end
-                    end))
-                elseif aimassistBool == false then
-                    if azureConnections["aimassistConnection0172391"] then aimassistEvent:unbindConnection("aimassistConnection0172391") end
-                end
-            end
-        end
-    end
-end))
-    
-aimassistEvent:bindConnection(mouse.Move, "%aimassistConnection3", LPH_JIT_ULTRA(function()
-    local mousePosition = userinputservice:GetMouseLocation()
-    aimassist__drawing["inner"].Position = mousePosition
-    aimassist__drawing["outer"].Position = mousePosition
-
-    aimassist__drawing["inner"].Radius = library.pointers["%radius"]:get()
-    aimassist__drawing["outer"].Radius = library.pointers["%radius"]:get()
-
-    aimassist__drawing["inner"].Color = library.pointers["%showfovcolor"]:get().Color
-    aimassist__drawing["outer"].Color = library.pointers["%showfovcoloroutline"]:get().Color
-end))
 
 local silentaimEvent = event:new("silentaimEvent")
-silentaimEvent:bindConnection(mouse.Move, "!silentaimConnection2", LPH_JIT_ULTRA(function()
-    local mousePosition = userinputservice:GetMouseLocation()
-    silentaim__drawing["inner"].Position = mousePosition
-    silentaim__drawing["outer"].Position = mousePosition
-
-    silentaim__drawing["inner"].Radius = library.pointers["!radius"]:get()
-    silentaim__drawing["outer"].Radius = library.pointers["!radius"]:get()
-
-    silentaim__drawing["inner"].Color = library.pointers["!showfovcolor"]:get().Color
-    silentaim__drawing["outer"].Color = library.pointers["!showfovcoloroutline"]:get().Color
-end))
 
 local anticurveBoolean
-silentaimEvent:bindConnection(runservice.Heartbeat, "!silentaimConnection3", LPH_JIT_ULTRA(function()
-    if library.pointers["!enabled"]:get() and library.pointers["!anticurve"]:get() then
-        if silentaimPlayer ~= nil and silentaimPlayer.player ~= nil and silentaimPlayer.player.Character ~= nil and aimbot.isAlive(silentaimPlayer.player) and character.isAlive() then
-            anticurveBoolean = true
-            shared.anticurve__currentpos = localplayer.Character.HumanoidRootPart.CFrame
-            localplayer.Character.HumanoidRootPart.CFrame = CFrame.new(localplayer.Character.HumanoidRootPart.CFrame.Position, Vector3.new(silentaimPlayer.player.Character.HumanoidRootPart.CFrame.X, localplayer.Character.HumanoidRootPart.CFrame.Position.Y, silentaimPlayer.player.Character.HumanoidRootPart.CFrame.Z))
-            runservice.RenderStepped:Wait()
-            localplayer.Character.HumanoidRootPart.CFrame = shared.anticurve__currentpos
-            anticurveBoolean = false
-        end
-    end
-end))
 
 local anticurveBoolean
-silentaimEvent:bindConnection(runservice.Heartbeat, "!silentaimConnection4", LPH_JIT_ULTRA(function()
-    if library.pointers["!enabled"]:get() and library.pointers["!line"]:get() then
-        if silentaimPlayer ~= nil and silentaimPlayer.player ~= nil and silentaimPlayer.player.Character ~= nil and aimbot.isAlive(silentaimPlayer.player) and character.isAlive() then
-            local pos
-            if library.pointers["!closestpart"]:get() then
-                pos = library.pointers["!antigroundshot"]:get() and shared.ClosestPart + Vector3.new(silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.X, -0, silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.Z) * library.pointers["!prediction"]:get() or shared.ClosestPart + silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity * library.pointers["!prediction"]:get()
-            else
-                pos = library.pointers["!antigroundshot"]:get() and silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Position + Vector3.new(silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.X, -0, silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.Z) * library.pointers["!prediction"]:get() or silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Position + silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity * library.pointers["!prediction"]:get()
-            end
-            local _, onscreen = camera:WorldToScreenPoint(pos)
-            silentaim__drawing.line.Visible = onscreen
-            silentaim__drawing.line.Color = library.pointers["!linecolor"]:get().Color
-
-            local targetaim__plr2D = camera:WorldToViewportPoint(pos)
-            silentaim__drawing.line.From = userinputservice:GetMouseLocation()
-            silentaim__drawing.line.To = Vector2.new(targetaim__plr2D.X, targetaim__plr2D.Y)
-        else
-            silentaim__drawing.line.Visible = false
-        end
-    else
-        silentaim__drawing.line.Visible = false
-    end
-    --[[
-    if library.pointers["!enabled"]:get() and library.pointers["!autoresolver"]:get() then
-        if silentaimPlayer ~= nil and silentaimPlayer.player ~= nil and silentaimPlayer.player.Character ~= nil and aimbot.isAlive(silentaimPlayer.player) then
-            if silentaimPlayer.player.Character["HumanoidRootPart" or "Head"].Velocity.Magnitude > 19 then 
-                function getVel()
-                    local lastPosition = silentaimPlayer.player.Character.HumanoidRootPart.Position 
-                    wait(1)
-                    local currentPosition = silentaimPlayer.player.Character.HumanoidRootPart.Position
-                    local newVelocity = (currentPosition - lastPosition) / 1
-                    return newVelocity
-                end
-                silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity = getVel()
-            end
-        end
-    end
-    ]]
-end))
 
 local targetaimEvent = event:new("targetaimEvent")
-targetaimEvent:bindConnection(mouse.Move, "#targetaimfovupdate", LPH_JIT_ULTRA(function()
-    local mousePosition = userinputservice:GetMouseLocation()
-    targetaim__drawing["inner"].Position = mousePosition
-    targetaim__drawing["outer"].Position = mousePosition
-
-    targetaim__drawing["inner"].Radius = library.pointers["#radius"]:get()
-    targetaim__drawing["outer"].Radius = library.pointers["#radius"]:get()
-
-    targetaim__drawing["inner"].Color = library.pointers["#showfovcolor"]:get().Color
-    targetaim__drawing["outer"].Color = library.pointers["#showfovcoloroutline"]:get().Color
-end))
 
 local targetaim__enabled
 local targetaim__player
 local targetaim__indicators = {}
-targetaimEvent:bindConnection(userinputservice.InputBegan, "#targetaimConnection", LPH_JIT_ULTRA(function(input, isrbx)
-    if not isrbx then
-        if input.KeyCode == library.pointers["#keybind"]:getkeybind() or input.UserInputType == library.pointers["#keybind"]:getkeybind() then
-            targetaim__enabled = not targetaim__enabled
-            targetaim__player = aimbot.getPlayer(library.pointers["#radius"]:get(), library.pointers["#aimpart"]:get(), library.pointers["#wallcheck"]:get())
-            if targetaim__enabled then
-                indicatorsconn = targetaimEvent:bindConnection(runservice.Heartbeat, "czx", LPH_JIT_ULTRA(function()
-                    if library.pointers["#enabled"]:get() and library.pointers["#indicators"]:get() then
-                        if targetaim__player ~= nil and targetaim__player.player ~= nil and targetaim__player.player.Character ~= nil and aimbot.isAlive(targetaim__player.player) then
-                            local _, onscreen = camera:WorldToScreenPoint(targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Position)
-                            targetaim__drawing.indicator.Visible = onscreen
+                hitindicatorconnction_ix = nil
 
-                            local player2D = camera:WorldToViewportPoint(targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Position)
-                            targetaim__drawing.indicator.Position = Vector2.new(player2D.X, player2D.Y)
-                            targetaim__drawing.indicator.Color = library.pointers["#indicatorcolor"]:get().Color
-
-                            local targetaim__indicator__text = ""
-                            if table.find(library.pointers["#indicatorsmisc"]:get(), "Visible") then
-                                local visible = workspace:FindPartOnRayWithIgnoreList(Ray.new(camera.CFrame.p, targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Position - camera.CFrame.p), { workspace.Ignored, camera, localplayer.Character, targetaim__player.player.Character }) == nil and "VISIBLE" or "NOT VISIBLE"
-                                targetaim__indicator__text = targetaim__indicator__text .. string.format("%s\n", visible)
-                            end
-                            if table.find(library.pointers["#indicatorsmisc"]:get(), "Velocity") then
-                                targetaim__indicator__text = targetaim__indicator__text .. string.format("X:%s, Y:%s, Z:%s\n", math.round(targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Velocity.X),math.round(targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Velocity.Y),math.round(targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Velocity.Z))
-                            end
-                            targetaim__drawing.indicator.Text = targetaim__indicator__text
-                        else
-                            targetaim__drawing.indicator.Visible = false
-                        end
-                    else
-                        targetaim__drawing.indicator.Visible = false
-                    end
-                end))
-                lookatconn = targetaimEvent:bindConnection(runservice.Heartbeat, "xonon", LPH_JIT_ULTRA(function()
-                    if library.pointers["#enabled"]:get() and library.pointers["#lookat"]:get() then
-                        localplayer.Character.Humanoid.AutoRotate = false
-                        if targetaim__player ~= nil and targetaim__player.player ~= nil and targetaim__player.player.Character ~= nil and aimbot.isAlive(targetaim__player.player) then
-                            localplayer.Character.Humanoid.AutoRotate = false
-                            localplayer.Character.HumanoidRootPart.CFrame = CFrame.new(localplayer.Character.HumanoidRootPart.CFrame.Position, Vector3.new(targetaim__player.player.Character.HumanoidRootPart.CFrame.X, localplayer.Character.HumanoidRootPart.CFrame.Position.Y, targetaim__player.player.Character.HumanoidRootPart.CFrame.Z))
-                        end
-                    end
-                end))
-                local targetaim__player__health = aimbot.isAlive(targetaim__player.player) and targetaim__player.player.Character.Humanoid.Health
-                hitindicatorconnction_ix = aimbot.isAlive(targetaim__player.player) and targetaim__player.player.Character.Humanoid:GetPropertyChangedSignal("Health"):Connect(function()
-                    if library.pointers["#hitindicator"]:get() and localplayer.Character.BodyEffects.GunFiring.Value == true then
-                        if aimbot.isAlive(targetaim__player.player) then
-                            if targetaim__player.player.Character.Humanoid.Health < targetaim__player__health then
-                                local newindicator = Instance.new("Part", workspace)
-                                table.insert(targetaim__indicators, newindicator)
-                                applyProperty(newindicator, {
-                                    Anchored = true,
-                                    CastShadow = false,
-                                    Transparency = 0,
-                                    Color = library.pointers["#hitindicatorcolor"]:get().Color,
-                                    Material = Enum.Material.ForceField,
-                                    Size = Vector3.new(1,1,1)
-                                })
-                                newindicator.Position = shared.shootpos
-                                wait(1.2)
-                                newindicator.Position = Vector3.new()
-                            end
-                        end
-                        targetaim__player__health = aimbot.isAlive(targetaim__player.player) and targetaim__player.player.Character.Humanoid.Health
-                    end
-                end)
-                targetaim__connection = targetaimEvent:bindConnection(runservice.Heartbeat, "#allah", LPH_JIT_ULTRA(function()
-                    if library.pointers["#enabled"]:get() then
-                        if targetaim__player ~= nil and targetaim__player.player ~= nil and targetaim__player.player.Character ~= nil and aimbot.isAlive(targetaim__player.player) then
-                            if library.pointers["#line"]:get() then
-                                local pos = library.pointers["#jumpoffset"]:get() and targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Position + Vector3.new(0, shared.JumpOffset, 0) + targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Velocity * targetaim__prediction or targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Position + targetaim__player.player.Character[library.pointers["#aimpart"]:get()].Velocity * targetaim__prediction
-                                local _, onscreen = camera:WorldToScreenPoint(pos)
-                                targetaim__drawing.line.Visible = onscreen
-                                targetaim__drawing.line.Color = library.pointers["#linecolor"]:get().Color
-
-                                local targetaim__plr2D = camera:WorldToViewportPoint(pos)
-                                targetaim__drawing.line.From = userinputservice:GetMouseLocation()
-                                targetaim__drawing.line.To = Vector2.new(targetaim__plr2D.X, targetaim__plr2D.Y)
-                            else
-                                targetaim__drawing.line.Visible = false
-                            end
-                        else
-                            targetaim__drawing.line.Visible = false
-                        end
-                    else
-                        targetaim__drawing.line.Visible = false
-                    end
-                end))
-                targetaim__connection2 = targetaimEvent:bindConnection(runservice.Heartbeat, "#allah2", LPH_JIT_ULTRA(function()
-                    if library.pointers["#enabled"]:get() then
-                        if targetaim__player ~= nil and targetaim__player.player ~= nil and targetaim__player.player.Character ~= nil and aimbot.isAlive(targetaim__player.player) then
-                            if library.pointers["#highlight"]:get() then
-                                targetaim__drawing.highlight.Enabled = true
-                                targetaim__drawing.highlight.FillColor = library.pointers["#highlightColor"]:get().Color
-                                targetaim__drawing.highlight.OutlineColor = library.pointers["#highlightOutline"]:get().Color
-                                targetaim__drawing.highlight.Parent = targetaim__player.player.Character
-                            else
-                                targetaim__drawing.highlight.Enabled = false
-                            end
-                        else
-                            targetaim__drawing.highlight.Enabled = false
-                        end
-                    else
-                        targetaim__drawing.highlight.Enabled = false
-                    end
-                end))
-            elseif targetaim__enabled == false then
-                if targetaim__connection then targetaimEvent:unbindConnection("#allah") end
-                if hitindicatorconnction_ix then hitindicatorconnction_ix:Disconnect() end
-                if targetaim__connection2 then targetaim__connection2:Disconnect() end
-                if lookatconn then lookatconn:Disconnect() end
-                if indicatorsconn then indicatorsconn:Disconnect() end
-                targetaim__drawing.line.Visible = false
-                targetaim__drawing.highlight.Parent = nil
-                localplayer.Character.Humanoid.AutoRotate = true
-                for i, v in next, targetaim__indicators do
-                    if v then v.Position = Vector3.new() end 
-                end
-                targetaim__drawing.indicator.Visible = false
-            end
-        end
-    end
-end))
-
-targetaimEvent:bindConnection(runservice.Heartbeat, "#targetaimConnection_x", LPH_JIT_ULTRA(function()
-    if targetaim__player ~= nil and targetaim__player.player ~= nil and targetaim__player.player.Character ~= nil then
-        if aimbot.isAlive(targetaim__player.player) then
-            if library.pointers["#jumpoffset"]:get() and targetaim__player.player.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-                shared.JumpOffset = library.pointers["#jumpoffsetamt"]:get()
-            else
-                shared.JumpOffset = 0
-            end
-        end
-    end
-    if library.pointers["#autoprediction"]:get() then
-        targetaim__prediction = targetaim__autoprediction
-    else
-        targetaim__prediction = library.pointers["#prediction"]:get()
-    end
-    --ELEGANT WORK ON THIS, DONT DO ANYTHING ELSE!
-    if library.pointers["#autoprediction"]:get() then
-        local ping = tonumber(stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(".")[1])
-        if ping < 100 then
-            targetaim__autoprediction = 0.141987
-        elseif ping < 80 then
-            targetaim__autoprediction = 0.139340
-        elseif ping < 70 then
-              targetaim__autoprediction = 0.12533
-              elseif ping < 65 then
-              targetaim__autoprediction = 0.1264236
-        elseif ping < 50 then
-              targetaim__autoprediction = 0.13544
-        elseif ping < 30 then
-     targetaim__autoprediction = 0.11252476
-        end
-    end
-end))
-
-task.spawn(function()
-    while wait() do
-        if library.pointers["!enabled"]:get() then
-            silentaimPlayer = aimbot.getPlayer(library.pointers["!radius"]:get(), library.pointers["!aimpart"]:get(), library.pointers["!wallcheck"]:get())
-        end
-        if library.pointers["!enabled"]:get() and library.pointers["!closestpart"]:get() then
-            if silentaimPlayer ~= nil and silentaimPlayer.player ~= nil and silentaimPlayer.player.Character ~= nil then
-                shared.ClosestPart = silentaimPlayer.player.Character[tostring(aimbot.getclosestpart(silentaimPlayer.player.Character))].Position
-            end
-        end
-    end
-end)
-
-old__namecall2 = gamerawmetatable.__namecall;gamerawmetatable.__namecall = newcclosure(function(...)
-    local arguments = {...}
-    if getnamecallmethod() == "FireServer" and arguments[2] == "UpdateMousePos"
-    then
-        if silentaimPlayer ~= nil and silentaimPlayer.player ~= nil and silentaimPlayer.player.Character ~= nil and library.pointers["!enabled"]:get() then
-            if library.pointers["!closestpart"]:get() then
-                if shared.ClosestPart ~= nil then
-                    local pos = library.pointers["!antigroundshot"]:get() and shared.ClosestPart + Vector3.new(silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.X, -0, silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.Z) * library.pointers["!prediction"]:get() or shared.ClosestPart + silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity * library.pointers["!prediction"]:get()
-                    arguments[3] = pos
-                    return old__namecall2(table.unpack(arguments))
-                end
-            else
-                local pos = library.pointers["!antigroundshot"]:get() and silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Position + Vector3.new(silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.X, -0, silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity.Z) * library.pointers["!prediction"]:get() or silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Position + silentaimPlayer.player.Character[library.pointers["!aimpart"]:get()].Velocity * library.pointers["!prediction"]:get()
-                arguments[3] = pos
-                return old__namecall2(table.unpack(arguments))
-            end
-        end
-    end
-    return old__namecall2(...)
-end)
 
 old__namecall3 = gamerawmetatable.__namecall;gamerawmetatable.__namecall = newcclosure(function(...)
     local arguments = {...}
@@ -7900,7 +7571,7 @@ end)
 --// desktop fixed this btw
 if library:Initialize() then library:Initialize() end
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V1",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
 -- ===== AUTO SECTION WITH REAL HVH EXPLOIT =====
 local SelectedTarget = nil
 local TeleportActive = false
@@ -8025,6 +7696,9 @@ local CAMLOCK_CONFIG = {
     Active = false,  -- Whether Camlock is currently active
     Key = Enum.KeyCode.C,
     UnlockKey = Enum.KeyCode.Z,
+    MacroEnabled = false,  -- Disable camlock when macro key is held
+    MacroKey = Enum.KeyCode.M,  -- The macro key
+    AutoClosestToCursor = false,  -- Auto target closest to cursor
     SmoothLock = true,
     Smoothness = 0.00216245,
     Shake = true,
@@ -8039,6 +7713,10 @@ local CAMLOCK_CONFIG = {
     WallCheck = false,
     WeaponCheck = true,
     FirstPersonCheck = true,
+}
+
+local MISC_CONFIG = {
+    TryhardAnimations = false,
 }
 
 local CachedAimPart, CachedAimPosition, SilentTarget = nil, nil, nil
@@ -8329,18 +8007,28 @@ local function GetClosestPlayerSpherical()
     local closestDist = math.huge
     local cam = game:GetService("Workspace").CurrentCamera
     local fov = SILENT_CONFIG.FOV.Radius
+    local lplr = game:GetService("Players").LocalPlayer
     
     for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        if player ~= game:GetService("Players").LocalPlayer and IsAlive(player) then
+        if player ~= lplr and IsAlive(player) then
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
                 local screenPos = cam:WorldToScreenPoint(hrp.Position)
                 local screenDist = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
                 
-                -- Only target if in FOV, closest, and in front of camera
-                if screenDist < fov and screenDist < closestDist and screenPos.Z > 0 then 
-                    closestDist = screenDist
-                    closestPlayer = player 
+                -- If AutoClosestToCursor enabled: use screen distance (closest to cursor within FOV)
+                -- If disabled: use world distance (closest player overall)
+                if CAMLOCK_CONFIG.AutoClosestToCursor then
+                    if screenDist < fov and screenDist < closestDist and screenPos.Z > 0 then 
+                        closestDist = screenDist
+                        closestPlayer = player 
+                    end
+                else
+                    local worldDist = (hrp.Position - lplr.Character.HumanoidRootPart.Position).Magnitude
+                    if worldDist < closestDist and screenPos.Z > 0 then
+                        closestDist = worldDist
+                        closestPlayer = player
+                    end
                 end
             end
         end
@@ -8985,6 +8673,14 @@ end))
 local function UpdateCamlockCamera()
     if not CAMLOCK_CONFIG.Enabled or not CAMLOCK_CONFIG.Active then return end
     
+    -- Macro key check - disable camlock when macro key is held
+    if CAMLOCK_CONFIG.MacroEnabled then
+        local UserInputService = game:GetService("UserInputService")
+        if UserInputService:IsKeyDown(CAMLOCK_CONFIG.MacroKey) then
+            return  -- Macro key is held, disable camlock
+        end
+    end
+    
     local cam = game:GetService("Workspace").CurrentCamera
     local lplr = game:GetService("Players").LocalPlayer
     local plrs = game:GetService("Players")
@@ -9016,22 +8712,28 @@ local function UpdateCamlockCamera()
     end
     
     -- Find closest player in FOV
-    local closestPlayer = nil
+    local closestPlayer = SelectedTarget  -- Use SelectedTarget if available
     local closestDist = math.huge
     local fov = CAMLOCK_CONFIG.FOV.Radius
     
-    for _, player in pairs(plrs:GetPlayers()) do
-        if player ~= lplr and player.Character then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 then
-                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local screenPos = cam:WorldToScreenPoint(hrp.Position)
-                    local screenDist = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
-                    
-                    if screenDist < fov and screenDist < closestDist and screenPos.Z > 0 then
-                        closestDist = screenDist
-                        closestPlayer = player
+    -- If no SelectedTarget, find closest player
+    if not closestPlayer or not closestPlayer.Character or not IsAlive(closestPlayer) then
+        closestPlayer = nil
+        for _, player in pairs(plrs:GetPlayers()) do
+            if player ~= lplr and player.Character then
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local screenPos = cam:WorldToScreenPoint(hrp.Position)
+                        local screenDist = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
+                        local worldDist = (hrp.Position - lplr.Character.HumanoidRootPart.Position).Magnitude
+                        
+                        -- Find closest in FOV
+                        if screenDist < fov and screenDist < closestDist and screenPos.Z > 0 then
+                            closestDist = screenDist
+                            closestPlayer = player
+                        end
                     end
                 end
             end
@@ -9198,6 +8900,17 @@ local function UpdateCamlockCamera()
                 end
             end
             
+            -- Wallcheck
+            if CAMLOCK_CONFIG.WallCheck then
+                local cam_pos = cam.CFrame.Position
+                local rayDirection = (targetPos - cam_pos).Unit
+                local ray = Ray.new(cam_pos, rayDirection * (targetPos - cam_pos).Magnitude)
+                local hit, _ = workspace:FindPartOnRay(ray, lplr.Character)
+                if hit and not hit:IsDescendantOf(closestPlayer.Character) then
+                    return  -- Wall blocking, skip camlock
+                end
+            end
+            
             -- Apply smoothing
             if CAMLOCK_CONFIG.SmoothLock and CAMLOCK_CONFIG.Smoothness > 0 then
                 -- Use smoothness value directly (0-0.1 range)
@@ -9329,13 +9042,15 @@ local camlockCombat = pageCamlock:InDevSection({ Name = "Camlock Settings", Side
 
 camlockCombat:Toggle({ Name = "Camlock Enabled", Pointer = "camlock_enabled", Default = false, Callback = function(v) CAMLOCK_CONFIG.Enabled = v end })
 camlockCombat:Keybind({ Name = "Toggle Key", Keybind = Enum.KeyCode.C, Callback = function(key) CAMLOCK_CONFIG.Key = key end })
+camlockCombat:Toggle({ Name = "Auto Closest to Cursor", Pointer = "camlock_autoclosest", Default = false, Callback = function(v) CAMLOCK_CONFIG.AutoClosestToCursor = v end })
+
 camlockCombat:Toggle({ Name = "Smooth Lock", Pointer = "camlock_smooth", Default = true, Callback = function(v) CAMLOCK_CONFIG.SmoothLock = v end })
 camlockCombat:Slider({ Name = "Smoothness", min = 0, max = 0.1, def = 0.00216245, decimals = 0.0001, pointer = "camlock_smoothness", callback = function(v) CAMLOCK_CONFIG.Smoothness = v end })
 camlockCombat:Toggle({ Name = "Shake", Pointer = "camlock_shake", Default = true, Callback = function(v) CAMLOCK_CONFIG.Shake = v end })
 camlockCombat:Slider({ Name = "Shake Value", min = 0, max = 10, def = 1, decimals = 0.1, pointer = "camlock_shakevalue", callback = function(v) CAMLOCK_CONFIG.ShakeValue = v end })
 
--- Prediction (Left side)
-local camlockPred = pageCamlock:InDevSection({ Name = "Prediction", Side = "Left" })
+-- Prediction (Right side)
+local camlockPred = pageCamlock:InDevSection({ Name = "Prediction", Side = "Right" })
 
 camlockPred:Toggle({ Name = "Prediction Enabled", Pointer = "camlock_pred_enabled", Default = true, Callback = function(v) CAMLOCK_CONFIG.Prediction.Enabled = v end })
 camlockPred:Slider({ Name = "Prediction", min = 0, max = 1, def = 0.135, decimals = 0.01, pointer = "camlock_pred", callback = function(v) CAMLOCK_CONFIG.Prediction.Basic = v end })
@@ -9377,5 +9092,22 @@ camlockChecks:Slider({ Name = "Ground Threshold", min = 0, max = 10, def = 3.5, 
 -- Additional Camlock Safety Checks
 camlockChecks:Toggle({ Name = "First Person Check", Pointer = "camlock_fpc", Default = true, Callback = function(v) CAMLOCK_CONFIG.FirstPersonCheck = v end })
 camlockChecks:Toggle({ Name = "Weapon Check", Pointer = "camlock_weaponcheck", Default = true, Callback = function(v) CAMLOCK_CONFIG.WeaponCheck = v end })
+camlockChecks:Toggle({ Name = "Wall Check", Pointer = "camlock_wallcheck", Default = false, Callback = function(v) CAMLOCK_CONFIG.WallCheck = v end })
 
-print("[EULEON] ADONIS BYPASSED - All features working!")
+-- Macro Check
+camlockChecks:Toggle({ Name = "Macro Disable", Pointer = "camlock_macro_enabled", Default = false, Callback = function(v) CAMLOCK_CONFIG.MacroEnabled = v end })
+camlockChecks:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) CAMLOCK_CONFIG.MacroKey = key end })
+
+-- Tryhard Animations
+table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Stepped:Connect(function()
+    if MISC_CONFIG.TryhardAnimations then
+        local character = game.Players.LocalPlayer.Character
+        if character and character:FindFirstChild("Animate") then
+            character.Animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+            character.Animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
+            character.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+        end
+    end
+end))
+
+print("Fuck fliggits")
