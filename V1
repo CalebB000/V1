@@ -92,7 +92,7 @@ repeat
     wait()
 until game:IsLoaded()
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "V1",Text = "loading",Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V1",Text = "loading",Duration = 3.6})
 
 local gamerawmetatable = getrawmetatable(game)
 setreadonly(gamerawmetatable, false)
@@ -145,9 +145,9 @@ getgenv().library = {
     ended = {},
     colors = {},
     folders = {
-        main = "azure",
-        assets = "azure/assets",
-        configs = "azure/configs"
+        main = "Euleon",
+        assets = "Euleon/assets",
+        configs = "Euleon/configs"
     },
     shared = {
         initialized = false,
@@ -5936,7 +5936,7 @@ return library, library.pointers, theme
 end
 
 local library = retlibrary():New({ 
-    Name = "Euleon - v1",
+    Name = "Euleon - Beta",
     Size = Vector2.new(550,601)
 })
 
@@ -7900,7 +7900,7 @@ end)
 --// desktop fixed this btw
 if library:Initialize() then library:Initialize() end
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V1",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
 -- ===== AUTO SECTION WITH REAL HVH EXPLOIT =====
 local SelectedTarget = nil
 local TeleportActive = false
