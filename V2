@@ -1,6 +1,6 @@
--- ===== CLEANUP SYSTEM FOR SCRIPT RELOADS =====
+
 if getgenv().EULEON_CLEANUP then
-    print("[EULEON] Cleaning up previous instance...")
+    print("Euleon")
     pcall(function() getgenv().EULEON_CLEANUP() end)
     task.wait(0.5)
 end
@@ -40,7 +40,7 @@ local function CreateCleanup()
         if FOV_Circle_Outline then FOV_Circle_Outline:Remove() FOV_Circle_Outline = nil end
         if FOV_Box_Outline then FOV_Box_Outline:Remove() FOV_Box_Outline = nil end
         
-        print("[EULEON] Cleanup complete!")
+        print("Euleon")
     end
 end
 
@@ -92,7 +92,7 @@ repeat
     wait()
 until game:IsLoaded()
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "V1",Text = "loading",Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "V2",Text = "loading",Duration = 3.6})
 
 local gamerawmetatable = getrawmetatable(game)
 setreadonly(gamerawmetatable, false)
@@ -5936,7 +5936,7 @@ return library, library.pointers, theme
 end
 
 local library = retlibrary():New({ 
-    Name = "Euleon - Beta",
+    Name = "Euleon - V2",
     Size = Vector2.new(550,601)
 })
 
@@ -5965,7 +5965,7 @@ function serv:get(serv)
     if suc then
         return game:GetService(serv)
     elseif suc == false then
-        print("invalid service")
+        print("Euleon")
         return print(res)
     end
 end
@@ -6585,6 +6585,7 @@ local VelocitySamples = {}
 
 local pageSilent = library:Page({ Name = "Silent" })
 local pageCamlock = library:Page({ Name = "Camlock" })
+local pagePrefire = library:Page({ Name = "Prefire" })
 local pageRage = library:Page({ Name = "Rage" })
 local pageVisuals = library:Page({ Name = "Visuals" })
 local espVisuals = pageVisuals:Section({ Name = "ESP" })
@@ -7571,7 +7572,7 @@ end)
 --// desktop fixed this btw
 if library:Initialize() then library:Initialize() end
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V1",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V2",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
 -- ===== AUTO SECTION WITH REAL HVH EXPLOIT =====
 local SelectedTarget = nil
 local TeleportActive = false
@@ -7623,7 +7624,7 @@ local HVH_ToggleKey = Enum.KeyCode.X
 hvhRage:Keybind({ Name = "HVH Toggle Key", Keybind = Enum.KeyCode.X, Callback = function(key) HVH_ToggleKey = key end })
 
 hvhRage:Button({ Name = "START/STOP", Callback = function()
-    if not SelectedTarget then print("[HVH] Select a target!") return end
+    if not SelectedTarget then print("Euleon") return end
     
     local lplr = game:GetService("Players").LocalPlayer
     local localplayer = lplr
@@ -7634,7 +7635,7 @@ hvhRage:Button({ Name = "START/STOP", Callback = function()
         if localplayer.Character then 
             OriginalPosition = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame 
         end
-        print("[HVH] STARTED!")
+        print("Euleon")
     else
         TeleportActive = false
         
@@ -7675,7 +7676,7 @@ hvhRage:Button({ Name = "START/STOP", Callback = function()
             VoidChaseConn = nil
         end
         
-        print("[HVH] STOPPED!")
+        print("Euleon")
     end
 end })
 
@@ -7689,6 +7690,8 @@ local SILENT_CONFIG = {
     WallCheck = true,
     WeaponCheck = true,
     FirstPersonCheck = true,
+    MacroEnabled = false,
+    MacroKey = Enum.KeyCode.M,
 }
 
 local CAMLOCK_CONFIG = {
@@ -7717,7 +7720,111 @@ local CAMLOCK_CONFIG = {
 
 local MISC_CONFIG = {
     TryhardAnimations = false,
+    SpreadModEnabled = false,
+    SpreadModAmount = 50,
+    MemorySpoofEnabled = false,
+    MemorySpoofMin = 500,
+    MemorySpoofMax = 800,
 }
+
+local PREFIRE_CONFIG = {
+    Enabled = false,
+    KeybindEnabled = true,
+    KeybindKey = "T",
+    DetectionRange = 1000,
+    RandomDelayEnabled = true,
+    RandomDelayMin = 0.17,
+    RandomDelayMax = 0.20,
+    DelayPresetsEnabled = false,
+    Preset1Enabled = true,
+    Preset1Keybind = Enum.KeyCode.Y,
+    Preset1Delay = 0.20,
+    Preset2Enabled = true,
+    Preset2Keybind = Enum.KeyCode.U,
+    Preset2Delay = 0.0,
+    CurrentPreset = 0,
+    Delay = 0.0,
+    ShotCount = 1,
+    TargetSpecificEnabled = true,
+    TargetSpecificPlayer = nil,
+    TargetSpecificNotifications = true,
+    TargetSpecificStayLocked = true,
+    TargetSpecificStayLockedKey = Enum.KeyCode.L,
+}
+
+-- ===== CONFIG SAVE/LOAD SYSTEM =====
+local CONFIG_PATH = "euleon_config.json"
+
+local function SaveConfig()
+    local config_data = {
+        SILENT = SILENT_CONFIG,
+        CAMLOCK = CAMLOCK_CONFIG,
+        MISC = MISC_CONFIG,
+        PREFIRE = PREFIRE_CONFIG,
+    }
+    local success = pcall(function()
+        writefile(CONFIG_PATH, game:GetService("HttpService"):JSONEncode(config_data))
+    end)
+    if success then
+        print("Euleon")
+    else
+        print("Euleon")
+    end
+end
+
+local function LoadConfig()
+    local success, content = pcall(function()
+        return readfile(CONFIG_PATH)
+    end)
+    
+    if success and content then
+        local ok, config_data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(content)
+        end)
+        
+        if ok and config_data then
+            -- Load Silent Config
+            if config_data.SILENT then
+                for k, v in pairs(config_data.SILENT) do
+                    SILENT_CONFIG[k] = v
+                end
+            end
+            -- Load Camlock Config
+            if config_data.CAMLOCK then
+                for k, v in pairs(config_data.CAMLOCK) do
+                    CAMLOCK_CONFIG[k] = v
+                end
+            end
+            -- Load Misc Config
+            if config_data.MISC then
+                for k, v in pairs(config_data.MISC) do
+                    MISC_CONFIG[k] = v
+                end
+            end
+            -- Load Prefire Config
+            if config_data.PREFIRE then
+                for k, v in pairs(config_data.PREFIRE) do
+                    PREFIRE_CONFIG[k] = v
+                end
+            end
+            print("Euleon")
+            return true
+        end
+    end
+    return false
+end
+
+-- Load config on startup
+LoadConfig()
+
+-- Spread Mod Section
+exploitsMisc:Toggle({Name = "Spread Mod", Default = false, Pointer = "spreadmod_enabled", Callback = function(v) MISC_CONFIG.SpreadModEnabled = v end})
+exploitsMisc:Slider({Name = "Spread Mod Amount", min = 0, max = 200, def = 50, decimals = 1, pointer = "spreadmod", callback = function(v) MISC_CONFIG.SpreadModAmount = v end})
+
+-- Memory Spoofer Section
+exploitsMisc:Toggle({Name = "Memory Spoofer", Default = false, Pointer = "memspoof_enabled", Callback = function(v) MISC_CONFIG.MemorySpoofEnabled = v end})
+exploitsMisc:Slider({Name = "Memory Min", min = 100, max = 2000, def = 500, decimals = 1, pointer = "memmin", callback = function(v) MISC_CONFIG.MemorySpoofMin = v end})
+exploitsMisc:Slider({Name = "Memory Max", min = 100, max = 2000, def = 800, decimals = 1, pointer = "memmax", callback = function(v) MISC_CONFIG.MemorySpoofMax = v end})
 
 local CachedAimPart, CachedAimPosition, SilentTarget = nil, nil, nil
 
@@ -8270,10 +8377,10 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
     -- AUTO STOMP
     if AutoStompEnabled and SelectedTarget and SelectedTarget.Character then
         if IsTargetDead(SelectedTarget) then
-            print("[STOMP] TARGET DEAD")
+            print("Euleon")
             
             if not teleportedToRagdoll then
-                print("[STOMP] WAITING FOR TORSO TO STOP")
+                print("Euleon")
                 
                 local waitCounter = 0
                 local torsoStopped = false
@@ -8285,7 +8392,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                     if targetTorso then
                         if IsTorsoStopped(targetTorso) then
                             torsoStopped = true
-                            print("[STOMP] TORSO STOPPED")
+                            print("Euleon")
                         end
                     end
                     waitCounter = waitCounter + 1
@@ -8293,7 +8400,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                 end
                 
                 -- Unlock constraints
-                print("[STOMP] UNLOCKING CONSTRAINTS")
+                print("Euleon")
                 for _, obj in pairs(myHrp:GetChildren()) do
                     if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("AlignPosition") or obj:IsA("BodyGyro") then
                         pcall(function() obj:Destroy() end)
@@ -8304,14 +8411,14 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                 pcall(function() myHrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0) end)
                 
                 -- Teleport 4 times
-                print("[STOMP] TELEPORTING ABOVE RAGDOLL")
+                print("Euleon")
                 for tpCount = 1, 4 do
                     if not AutoStompEnabled then return end
                     
                     local targetTorso = SelectedTarget.Character:FindFirstChild("UpperTorso") or SelectedTarget.Character:FindFirstChild("Torso")
                     if targetTorso then
                         myHrp.CFrame = targetTorso.CFrame + Vector3.new(0, 5, 0)
-                        print("[STOMP] TP #" .. tpCount .. "/4")
+                        print("Euleon" .. tpCount .. "/4")
                         task.wait(0.2)
                     end
                 end
@@ -8319,7 +8426,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                 teleportedToRagdoll = true
                 task.wait(0.3)
                 
-                print("[STOMP] SPAMMING E")
+                print("Euleon")
                 local respawnWait = 0
                 while respawnWait < 300 do
                     if not AutoStompEnabled then break end
@@ -8339,7 +8446,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                     respawnWait = respawnWait + 1
                 end
                 
-                print("[STOMP] COMPLETE")
+                print("Euleon")
             end
             return
         else
@@ -8389,7 +8496,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
             if VoidChaseStartTime == 0 then
                 myHrp.CFrame = CFrame.new(targetPos)
                 VoidChaseStartTime = tick()
-                print("[VOID] TPed to target")
+                print("Euleon")
             elseif tick() - VoidChaseStartTime > 0.2 and not VoidChaseConn then
                 if VoidChaseConn then VoidChaseConn:Disconnect() end
                 
@@ -8428,7 +8535,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                 ShootGraceTime = tick() + 0.5
                 LastStandStillTime = tick()
                 ShootCount = 1
-                print("[VOID FREEZE] SHOOTING!")
+                print("Euleon!")
             end
         end
     
@@ -8454,7 +8561,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
             ShootGraceTime = tick() + 0.5
             LastStandStillTime = tick()
             ShootCount = 1
-            print("[DECEL] FREEZE - SHOOTING!")
+            print("Euleon")
         end
     
     -- Risky mode
@@ -8479,7 +8586,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
             ShootGraceTime = tick() + 0.3
             LastStandStillTime = tick()
             ShootCount = 1
-            print("[RISKY] SHOOTING! (Speed: " .. math.floor(targetVelocity) .. ")")
+            print("Euleon " .. math.floor(targetVelocity) .. ")")
         end
     
     -- Target moving
@@ -8577,7 +8684,7 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                 tool:Activate()
             end)
             ShootCount = ShootCount + 1
-            print("[DOUBLE SHOOT] Shot #" .. ShootCount)
+            print("Euleon" .. ShootCount)
         end
     end
 end))
@@ -8601,7 +8708,7 @@ table.insert(EULEON_CONNECTIONS, UserInputService.InputBegan:Connect(function(In
     if Input.KeyCode == CAMLOCK_CONFIG.Key then
         CAMLOCK_CONFIG.Active = not CAMLOCK_CONFIG.Active
         local status = CAMLOCK_CONFIG.Active and "ACTIVATED" or "DEACTIVATED"
-        print("[CAMLOCK] " .. status)
+        print("Euleon " .. status)
     end
 end))
 
@@ -8610,7 +8717,7 @@ table.insert(EULEON_CONNECTIONS, UserInputService.InputBegan:Connect(function(In
     if GameProcessed then return end
     if Input.KeyCode == HVH_ToggleKey then
         if not SelectedTarget then 
-            print("[HVH] Select a target first!")
+            print("Euleon")
             return 
         end
         
@@ -8623,7 +8730,7 @@ table.insert(EULEON_CONNECTIONS, UserInputService.InputBegan:Connect(function(In
             if localplayer.Character then 
                 OriginalPosition = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame 
             end
-            print("[HVH] ENABLED!")
+            print("Euleon")
         else
             TeleportActive = false
             
@@ -8664,7 +8771,7 @@ table.insert(EULEON_CONNECTIONS, UserInputService.InputBegan:Connect(function(In
                 VoidChaseConn = nil
             end
             
-            print("[HVH] DISABLED!")
+            print("Euleon")
         end
     end
 end))
@@ -8747,7 +8854,7 @@ local function UpdateCamlockCamera()
         -- Ensure Parts list exists
         if not CAMLOCK_CONFIG.Parts or #CAMLOCK_CONFIG.Parts == 0 then
             CAMLOCK_CONFIG.Parts = {"Head", "UpperTorso", "HumanoidRootPart"}
-            print("[CAMLOCK] Parts list was empty, reset to defaults")
+            print("Euleon")
         end
         
         -- Get target position based on settings
@@ -8784,14 +8891,14 @@ local function UpdateCamlockCamera()
             if bestPart then
                 targetPart = bestPart
                 targetPos = bestPart.Position
-                print("[CAMLOCK] Closest Part: " .. bestPartName .. " (cursor dist: " .. math.floor(closestPartDist) .. ")")
+                print("Euleon: " .. bestPartName .. " (cursor dist: " .. math.floor(closestPartDist) .. ")")
             else
                 -- Fallback if nothing found
                 local fallback = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if fallback then
                     targetPart = fallback
                     targetPos = fallback.Position
-                    print("[CAMLOCK] Closest Part: Fallback to HumanoidRootPart")
+                    print("Euleon")
                 end
             end
         elseif CAMLOCK_CONFIG.ClosestPoint.Enabled then
@@ -8852,12 +8959,12 @@ local function UpdateCamlockCamera()
             if bestPos then
                 targetPart = bestPart
                 targetPos = bestPos
-                print("[CAMLOCK] Closest Point: " .. bestPartName .. " (screen dist: " .. math.floor(closestScreenDist) .. ")")
+                print("Euleon " .. bestPartName .. " (screen dist: " .. math.floor(closestScreenDist) .. ")")
             else
                 -- Fallback to Head if no point found
                 targetPart = closestPlayer.Character:FindFirstChild("Head")
                 if targetPart then targetPos = targetPart.Position end
-                print("[CAMLOCK] Closest Point: Fallback to Head")
+                print("Euleon")
             end
         else
             -- Default: target Head first, then HumanoidRootPart
@@ -8867,7 +8974,7 @@ local function UpdateCamlockCamera()
                 targetPart = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
             end
             targetPos = targetPart and targetPart.Position
-            print("[CAMLOCK] Mode: Default -> " .. (targetPart and targetPart.Name or "None"))
+            print("Euleon " .. (targetPart and targetPart.Name or "None"))
         end
         
         if targetPos then
@@ -8896,7 +9003,7 @@ local function UpdateCamlockCamera()
                 
                 if predAmount > 0 and vel.Magnitude > 0 then
                     targetPos = targetPos + (vel * predAmount)
-                    print("[CAMLOCK] Prediction applied: " .. predMode .. " (" .. string.format("%.3f", predAmount) .. "), vel: " .. string.format("%.1f", vel.Magnitude))
+                    print("Euleon " .. predMode .. " (" .. string.format("%.3f", predAmount) .. "), vel: " .. string.format("%.1f", vel.Magnitude))
                 end
             end
             
@@ -9027,13 +9134,15 @@ silentaimCombat:Slider({ Name = "Hit Chance", min = 0, max = 100, def = 100, poi
 silentaimCombat:Toggle({ Name = "First Person Check", Pointer = "silent_firstperson", Default = true, Callback = function(v) 
     SILENT_CONFIG.FirstPersonCheck = v
     local status = v and "ENABLED (First person only)" or "DISABLED (Works in any perspective)"
-    print("[SILENT AIM] First Person Check: " .. status)
+    print("Euleon " .. status)
 end })
 silentaimCombat:Toggle({ Name = "Closest Point", Pointer = "silent_cp", Default = true, Callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Enabled = v end })
 silentaimCombat:Slider({ Name = "CP Scale", min = 1, max = 20, def = 5.5, decimals = 0.1, pointer = "silent_cp_scale", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Scale = v end })
 silentaimCombat:Slider({ Name = "CP Density", min = 1, max = 10, def = 2, pointer = "silent_cp_density", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Density = v end })
 silentaimCombat:Slider({ Name = "Prediction", min = 0, max = 1, def = 0, decimals = 0.01, pointer = "silent_pred", callback = function(v) SILENT_CONFIG.Main.Prediction.Basic = v end })
 silentaimCombat:Toggle({ Name = "Wall Check", Pointer = "silent_wallcheck", Default = true, Callback = function(v) SILENT_CONFIG.WallCheck = v end })
+silentaimCombat:Toggle({ Name = "Macro Disable", Pointer = "silent_macro", Default = false, Callback = function(v) SILENT_CONFIG.MacroEnabled = v end })
+silentaimCombat:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) SILENT_CONFIG.MacroKey = key end })
 silentaimCombat:Toggle({ Name = "Anti Aim Viewer", Pointer = "silent_antiaim", Default = true, Callback = function(v) SILENT_CONFIG.AntiAimViewer = v end })
 silentaimCombat:Toggle({ Name = "Weapon Check", Pointer = "silent_weaponcheck", Default = true, Callback = function(v) SILENT_CONFIG.WeaponCheck = v end })
 
@@ -9098,7 +9207,197 @@ camlockChecks:Toggle({ Name = "Wall Check", Pointer = "camlock_wallcheck", Defau
 camlockChecks:Toggle({ Name = "Macro Disable", Pointer = "camlock_macro_enabled", Default = false, Callback = function(v) CAMLOCK_CONFIG.MacroEnabled = v end })
 camlockChecks:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) CAMLOCK_CONFIG.MacroKey = key end })
 
--- Tryhard Animations
+-- ===== PREFIRE TAB =====
+local prefireMain = pagePrefire:InDevSection({ Name = "Prefire Main", Side = "Left" })
+
+prefireMain:Toggle({ Name = "Enabled", Pointer = "prefire_enabled", Default = false, Callback = function(v) PREFIRE_CONFIG.Enabled = v end })
+prefireMain:Slider({ Name = "Detection Range", min = 100, max = 5000, def = 1000, decimals = 50, pointer = "prefire_range", callback = function(v) PREFIRE_CONFIG.DetectionRange = v end })
+prefireMain:Slider({ Name = "Shot Count", min = 1, max = 10, def = 1, decimals = 1, pointer = "prefire_shotcount", callback = function(v) PREFIRE_CONFIG.ShotCount = v end })
+prefireMain:Slider({ Name = "Delay", min = 0, max = 1, def = 0, decimals = 0.01, pointer = "prefire_delay", callback = function(v) PREFIRE_CONFIG.Delay = v end })
+
+-- Keybind Section
+local prefireKeybind = pagePrefire:InDevSection({ Name = "Keybind", Side = "Right" })
+
+prefireKeybind:Toggle({ Name = "Keybind Enabled", Pointer = "prefire_kb_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.KeybindEnabled = v end })
+prefireKeybind:Textbox({ Name = "Keybind Key", Pointer = "prefire_kb_key", Callback = function(v) PREFIRE_CONFIG.KeybindKey = v end, Default = "T" })
+
+-- Random Delay Section
+local prefireRandomDelay = pagePrefire:InDevSection({ Name = "Random Delay", Side = "Left" })
+
+prefireRandomDelay:Toggle({ Name = "Enabled", Pointer = "prefire_rd_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.RandomDelayEnabled = v end })
+prefireRandomDelay:Slider({ Name = "Min", min = 0, max = 1, def = 0.17, decimals = 0.01, pointer = "prefire_rd_min", callback = function(v) PREFIRE_CONFIG.RandomDelayMin = v end })
+prefireRandomDelay:Slider({ Name = "Max", min = 0, max = 1, def = 0.20, decimals = 0.01, pointer = "prefire_rd_max", callback = function(v) PREFIRE_CONFIG.RandomDelayMax = v end })
+
+-- Delay Presets Section
+local prefirePresets = pagePrefire:InDevSection({ Name = "Delay Presets", Side = "Right" })
+
+prefirePresets:Toggle({ Name = "Enabled", Pointer = "prefire_presets_enabled", Default = false, Callback = function(v) PREFIRE_CONFIG.DelayPresetsEnabled = v end })
+prefirePresets:Toggle({ Name = "Preset 1 Enabled", Pointer = "prefire_preset1_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.Preset1Enabled = v end })
+prefirePresets:Slider({ Name = "Preset 1 Delay", min = 0, max = 1, def = 0.20, decimals = 0.01, pointer = "prefire_preset1_delay", callback = function(v) PREFIRE_CONFIG.Preset1Delay = v end })
+prefirePresets:Toggle({ Name = "Preset 2 Enabled", Pointer = "prefire_preset2_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.Preset2Enabled = v end })
+prefirePresets:Slider({ Name = "Preset 2 Delay", min = 0, max = 1, def = 0.0, decimals = 0.01, pointer = "prefire_preset2_delay", callback = function(v) PREFIRE_CONFIG.Preset2Delay = v end })
+
+-- Target Specific Section
+local prefireTargetSpecific = pagePrefire:InDevSection({ Name = "Target Specific", Side = "Left" })
+
+prefireTargetSpecific:Toggle({ Name = "Enabled", Pointer = "prefire_ts_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.TargetSpecificEnabled = v end })
+prefireTargetSpecific:Toggle({ Name = "Notifications", Pointer = "prefire_ts_notif", Default = true, Callback = function(v) PREFIRE_CONFIG.TargetSpecificNotifications = v end })
+prefireTargetSpecific:Toggle({ Name = "Stay Locked", Pointer = "prefire_ts_staylocked", Default = true, Callback = function(v) PREFIRE_CONFIG.TargetSpecificStayLocked = v end })
+
+-- ===== SPREAD MOD (EXACT FROM DNS) =====
+do
+    local math_random_old
+    math_random_old = hookfunction(math.random, newcclosure(function(...)
+        if checkcaller() then return math_random_old(...) end
+        if MISC_CONFIG.SpreadModEnabled then
+            local args   = {...}
+            local a1, a2 = args[1], args[2]
+            if (#args == 0) or (a1 == -0.05 and a2 == 0.05) or (a1 == -0.1) or (a1 == -0.05) then
+                return math_random_old(...) * (MISC_CONFIG.SpreadModAmount / 100)
+            end
+        end
+        return math_random_old(...)
+    end))
+end
+
+-- ===== MEMORY SPOOFER (ALWAYS HOOK, CHECK FLAG INSIDE) =====
+task.spawn(function()
+    local Memory
+    for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
+        if v.Name == "PS_Button" and v.StatsMiniTextPanelClass.TitleLabel.Text == "Mem" then
+            Memory = v.StatsMiniTextPanelClass.ValueLabel
+        end
+    end
+    
+    if Memory then
+        Memory:GetPropertyChangedSignal("Text"):Connect(function()
+            if not MISC_CONFIG.MemorySpoofEnabled then return end
+            local Random = math.random(MISC_CONFIG.MemorySpoofMin, MISC_CONFIG.MemorySpoofMax)
+            Random = Random + (math.random(0, 99) / 100)
+            Random = Random * 1.23 
+            Memory.Text = string.format("%.2f MB", Random)
+        end)
+    end
+end)
+
+-- ===== SILENT AIM MACRO CHECK =====
+local OriginalUpdateCachedAim = UpdateCachedAim
+function UpdateCachedAim()
+    -- Macro key check - disable silent aim when macro key is held
+    if SILENT_CONFIG.MacroEnabled then
+        if game:GetService("UserInputService"):IsKeyDown(SILENT_CONFIG.MacroKey) then
+            CachedAimPart = nil
+            CachedAimPosition = nil
+            return
+        end
+    end
+    -- Call original function
+    return OriginalUpdateCachedAim()
+end
+
+-- ===== PREFIRE IMPLEMENTATION =====
+local prefire_armed = false
+local prefire_firing = false
+
+local function prefire_activate()
+    if prefire_firing then return end
+    local char = lplr.Character
+    if not char then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return end
+    prefire_firing = true
+    
+    local delay_time = PREFIRE_CONFIG.Delay
+    local shot_count = PREFIRE_CONFIG.ShotCount or 1
+    
+    -- Handle delay presets
+    if PREFIRE_CONFIG.DelayPresetsEnabled then
+        local current_preset = PREFIRE_CONFIG.CurrentPreset or 0
+        if current_preset == 1 and PREFIRE_CONFIG.Preset1Enabled then
+            delay_time = PREFIRE_CONFIG.Preset1Delay or 0
+        elseif current_preset == 2 and PREFIRE_CONFIG.Preset2Enabled then
+            delay_time = PREFIRE_CONFIG.Preset2Delay or 0
+        elseif current_preset == 0 then
+            -- Use random delay
+            if PREFIRE_CONFIG.RandomDelayEnabled then
+                local min_d = PREFIRE_CONFIG.RandomDelayMin or 0.17
+                local max_d = PREFIRE_CONFIG.RandomDelayMax or 0.20
+                delay_time = min_d + (math.random() * (max_d - min_d))
+            else
+                delay_time = PREFIRE_CONFIG.Delay
+            end
+        end
+    elseif PREFIRE_CONFIG.RandomDelayEnabled then
+        local min_d = PREFIRE_CONFIG.RandomDelayMin or 0.17
+        local max_d = PREFIRE_CONFIG.RandomDelayMax or 0.20
+        delay_time = min_d + (math.random() * (max_d - min_d))
+    end
+    
+    if delay_time > 0 then
+        task.delay(delay_time, function()
+            for i = 1, shot_count do
+                tool:Activate()
+                if i < shot_count then
+                    task.wait(0.05)
+                end
+            end
+            prefire_firing = false
+        end)
+    else
+        for i = 1, shot_count do
+            tool:Activate()
+            if i < shot_count then
+                task.wait(0.05)
+            end
+        end
+        prefire_firing = false
+    end
+end
+
+local function update_prefire()
+    if not PREFIRE_CONFIG.Enabled then return end
+    if not prefire_armed then return end
+    
+    local ok, radius = pcall(function() return ws.Ignored.Siren.Radius end)
+    if not ok or not radius then return end
+    local lhrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+    if not lhrp then return end
+    
+    local detection_range = PREFIRE_CONFIG.DetectionRange or 1000
+    
+    for _, obj in ipairs(radius:GetChildren()) do
+        if obj.Name ~= "BULLET_RAYS" then continue end
+        
+        local owner = obj:GetAttribute("OwnerCharacter")
+        if owner == lplr.Name then continue end
+        
+        if (obj.Position - lhrp.Position).Magnitude > detection_range then continue end
+        
+        prefire_activate()
+        return
+    end
+end
+
+-- Prefire keybind
+table.insert(EULEON_CONNECTIONS, uis.InputBegan:Connect(function(k, t)
+    if t then return end
+    if not PREFIRE_CONFIG.Enabled or not PREFIRE_CONFIG.KeybindEnabled then return end
+    
+    local kb_key = PREFIRE_CONFIG.KeybindKey:upper()
+    if k.UserInputType == Enum.UserInputType.MouseButton2 then 
+        prefire_armed = true 
+    end
+end))
+
+table.insert(EULEON_CONNECTIONS, uis.InputEnded:Connect(function(k)
+    if k.UserInputType == Enum.UserInputType.MouseButton2 then 
+        prefire_armed = false 
+    end
+end))
+
+table.insert(EULEON_CONNECTIONS, rs.Heartbeat:Connect(update_prefire))
+
+-- ===== TRYHARD ANIMATIONS =====
 table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Stepped:Connect(function()
     if MISC_CONFIG.TryhardAnimations then
         local character = game.Players.LocalPlayer.Character
@@ -9110,4 +9409,17 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Stepped:Connect(f
     end
 end))
 
-print("Fuck fliggits")
+-- ===== AUTO-SAVE CONFIG EVERY 30 SECONDS =====
+table.insert(EULEON_CONNECTIONS, rs.Heartbeat:Connect(function()
+    if tick() % 30 < 0.016 then
+        SaveConfig()
+    end
+end))
+
+-- Save config on script exit
+game:BindToClose(function()
+    SaveConfig()
+end)
+
+print("Euleon")
+print("Euleon")
