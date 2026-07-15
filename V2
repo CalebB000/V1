@@ -7726,9 +7726,9 @@ local SILENT_CONFIG = {
     ClientBullet = { Enabled = true },
     FOV = { Type = "Box", Enabled = true, ShowFOV = false, Radius = 90, Color = Color3.fromRGB(255, 68, 80), FocusColor = Color3.fromRGB(255, 255, 255), Filled = false, FillTransparency = 0.5, Transparency = 1, Thickness = 1, OutlineThickness = 1, OutlineColor = Color3.fromRGB(255, 255, 255) },
     AntiAimViewer = true,
-    WallCheck = true,
+    WallCheck = false,
     WeaponCheck = true,
-    FirstPersonCheck = true,
+    FirstPersonCheck = false,
     MacroEnabled = false,
     MacroKey = Enum.KeyCode.M,
 }
@@ -8136,23 +8136,24 @@ end
 
 local function InSilentFOV(player)
     if not player or not player.Character then return false end
-    local fov = SILENT_CONFIG.FOV.Radius
+    local fovRadius = SILENT_CONFIG.FOV.Radius  -- Tight FOV in pixels
     local cam = game:GetService("Workspace").CurrentCamera
     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
     
     local screenPos = cam:WorldToScreenPoint(hrp.Position)
-    local screenDist = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
+    -- Distance from target to CENTER of screen (cursor)
+    local distFromCursor = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
     
-    -- Only in FOV if in radius and in front of camera
-    return screenDist < fov and screenPos.Z > 0
+    -- Must be in FOV circle AND visible
+    return distFromCursor <= fovRadius and screenPos.Z > 0
 end
 
 local function GetClosestPlayerSpherical()
     local closestPlayer = nil
-    local closestDist = math.huge
+    local closestDistToCursor = math.huge
     local cam = game:GetService("Workspace").CurrentCamera
-    local fov = SILENT_CONFIG.FOV.Radius
+    local fovRadius = SILENT_CONFIG.FOV.Radius  -- Tight FOV radius
     local lplr = game:GetService("Players").LocalPlayer
     
     for _, player in pairs(game:GetService("Players"):GetPlayers()) do
@@ -8160,19 +8161,14 @@ local function GetClosestPlayerSpherical()
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
                 local screenPos = cam:WorldToScreenPoint(hrp.Position)
-                local screenDist = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
+                -- Distance from target to YOUR CURSOR (center of screen)
+                local distFromCursor = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
                 
-                -- If AutoClosestToCursor enabled: use screen distance (closest to cursor within FOV)
-                -- If disabled: use world distance (closest player overall)
-                if CAMLOCK_CONFIG.AutoClosestToCursor then
-                    if screenDist < fov and screenDist < closestDist and screenPos.Z > 0 then 
-                        closestDist = screenDist
-                        closestPlayer = player 
-                    end
-                else
-                    local worldDist = (hrp.Position - lplr.Character.HumanoidRootPart.Position).Magnitude
-                    if worldDist < closestDist and screenPos.Z > 0 then
-                        closestDist = worldDist
+                -- MUST be in FOV circle to even consider
+                if distFromCursor <= fovRadius and screenPos.Z > 0 then
+                    -- Lock onto whoever is CLOSEST TO CURSOR
+                    if distFromCursor < closestDistToCursor then
+                        closestDistToCursor = distFromCursor
                         closestPlayer = player
                     end
                 end
@@ -8326,7 +8322,7 @@ local function HookGunHandler()
     end
 end
 
-table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect(function()
+table.insert(EULEON_CONNECTIONS, game:GetService("RunService").RenderStepped:Connect(function()
     UpdateHVHAim()
     UpdateCachedAim()
     DrawFOV()
