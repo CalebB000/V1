@@ -4,36 +4,6 @@ local Players = game:GetService("Players")
 
 local holdshoot_active = false
 
--- Detect mouse button 1 press
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        holdshoot_active = true
-    end
-end)
-
--- Detect mouse button 1 release
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        holdshoot_active = false
-    end
-end)
-
--- Spam activate while holding
-RunService.RenderStepped:Connect(function()
-    if not holdshoot_active then return end
-    
-    local player = Players.LocalPlayer
-    if not player or not player.Character then return end
-    
-    local tool = player.Character:FindFirstChildOfClass("Tool")
-    if tool then
-        pcall(function()
-            tool:Activate()
-        end)
-    end
-end)
-
 print("EULEON")
 
 
@@ -85,6 +55,37 @@ end
 
 -- Store cleanup for next load
 getgenv().EULEON_CLEANUP = CreateCleanup()
+
+-- ===== HOLD SHOOT (EARLY SETUP) =====
+-- Detect mouse button 1 press
+table.insert(EULEON_CONNECTIONS, UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        holdshoot_active = true
+    end
+end))
+
+-- Detect mouse button 1 release
+table.insert(EULEON_CONNECTIONS, UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        holdshoot_active = false
+    end
+end))
+
+-- Spam activate while holding
+table.insert(EULEON_CONNECTIONS, RunService.RenderStepped:Connect(function()
+    if not holdshoot_active then return end
+    
+    local player = Players.LocalPlayer
+    if not player or not player.Character then return end
+    
+    local tool = player.Character:FindFirstChildOfClass("Tool")
+    if tool then
+        pcall(function()
+            tool:Activate()
+        end)
+    end
+end))
 
 -- ===== ADONIS ANTICHEAT BYPASS =====
 if getgenv().BYPASSED_ADONIS ~= true then
@@ -7723,14 +7724,15 @@ end })
 local SILENT_CONFIG = {
     Enabled = true,
     Main = { Enabled = true, Hitchance = 100, Parts = {"Head", "UpperTorso", "HumanoidRootPart"}, ClosestPoint = { Enabled = true, Mode = "Advanced", Scale = 5.5, Density = 2 }, Prediction = { Enabled = true, Mode = "Basic", Basic = 0 }, AntiCurve = { Enabled = false }, AutoLock = { Enabled = true, Mode = "FOV" } },
-    ClientBullet = { Enabled = true },
-    FOV = { Type = "Box", Enabled = true, ShowFOV = false, Radius = 90, Color = Color3.fromRGB(255, 68, 80), FocusColor = Color3.fromRGB(255, 255, 255), Filled = false, FillTransparency = 0.5, Transparency = 1, Thickness = 1, OutlineThickness = 1, OutlineColor = Color3.fromRGB(255, 255, 255) },
+    ClientBullet = { Enabled = true, Mode = "Normal" },  -- Modes: "Normal" (with spread), "Sniper" (no spread, OP range), "LegitSniper" (revolver only)
+    FOV = { Type = "Circle", Enabled = true, ShowFOV = true, Radius = 209, Color = Color3.fromRGB(255, 68, 80), FocusColor = Color3.fromRGB(255, 255, 255), Filled = true, FillTransparency = 0.2, Transparency = 1, Thickness = 1, OutlineThickness = 2.5, OutlineColor = Color3.fromRGB(255, 255, 255) },
     AntiAimViewer = true,
     WallCheck = false,
     WeaponCheck = true,
     FirstPersonCheck = false,
     MacroEnabled = false,
     MacroKey = Enum.KeyCode.M,
+    HoldCheckEnabled = false,
 }
 
 local CAMLOCK_CONFIG = {
@@ -7867,6 +7869,14 @@ exploitsMisc:Slider({Name = "Memory Max", min = 100, max = 2000, def = 800, deci
 
 local CachedAimPart, CachedAimPosition, SilentTarget = nil, nil, nil
 
+-- ===== HOLD CHECK MODE =====
+local HeldTarget = nil  -- Target locked during mouse hold
+local WasHolding = false  -- Track if mouse was held last frame
+local descendantCheckCounter = 0  -- Throttle GetDescendants checks (only 5x per frame)
+local wallCheckCounter = 0  -- Throttle wall check (only every 3 frames)
+local fovDrawCounter = 0  -- Throttle FOV drawing (only every 2 frames)
+local camlockUpdateCounter = 0  -- Throttle camlock camera updates (every other frame)
+
 -- ===== SEPARATE HVH SILENT AIM (HEAD LOCK ONLY) =====
 local HVH_CachedAimPosition = nil
 local HVH_CachedAimPart = nil
@@ -7889,10 +7899,9 @@ local FOV_Circle_Outline, FOV_Box_Outline = nil, nil
 local R15_PARTS = {"Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"}
 
 local function DrawFOV()
-    local cam = game:GetService("Workspace").CurrentCamera
     local fov = SILENT_CONFIG.FOV
-    local uis = game:GetService("UserInputService")
     
+    -- Skip ALL operations if ShowFOV disabled
     if not fov.ShowFOV then
         if FOV_Circle then 
             pcall(function() FOV_Circle:Remove() end)
@@ -7910,8 +7919,15 @@ local function DrawFOV()
             pcall(function() FOV_Box_Outline:Remove() end)
             FOV_Box_Outline = nil 
         end
-        return
+        return  -- Early exit, skip throttle and all drawing
     end
+    
+    -- Throttle FOV drawing to every 2 frames (only if enabled)
+    fovDrawCounter = (fovDrawCounter + 1) % 2
+    if fovDrawCounter ~= 0 then return end
+    
+    local cam = game:GetService("Workspace").CurrentCamera
+    local uis = game:GetService("UserInputService")
     
     -- Get cursor position
     local mouse = game:GetService("Players").LocalPlayer:GetMouse()
@@ -8216,11 +8232,30 @@ local function GetSilentAimPosition(character)
     end
     
     if not (bp and bpos) then return nil, nil end
-    if SILENT_CONFIG.WallCheck and not DoWallCheck(bp) then return nil, nil end
+    
+    -- Wallcheck throttled to every 2 frames for FPS (still responsive)
+    if SILENT_CONFIG.WallCheck then
+        wallCheckCounter = (wallCheckCounter + 1) % 2
+        if wallCheckCounter == 0 then
+            if not DoWallCheck(bp) then 
+                return nil, nil 
+            end
+        end
+    end
     
     -- Use simple prediction like old script
     local predAmount = s.Prediction.Enabled and s.Prediction.Basic or 0
     return bp, ApplyPrediction(bpos, vel, predAmount)
+end
+
+-- Check if revolver is equipped
+local function IsRevolverEquipped()
+    local lplr = game:GetService("Players").LocalPlayer
+    if not lplr or not lplr.Character then return false end
+    local tool = lplr.Character:FindFirstChildOfClass("Tool")
+    if not tool then return false end
+    -- Check if tool name contains "Revolver" or is the revolver weapon
+    return tool.Name:lower():find("revolver") ~= nil or tool.Name == "Revolver"
 end
 
 local function UpdateCachedAim()
@@ -8247,9 +8282,35 @@ local function UpdateCachedAim()
     -- Normal Silent Aim mode (not HVH): apply all checks
     if SILENT_CONFIG.FirstPersonCheck and not IsInFirstPerson() then return end
     
+    -- LegitSniper mode: only activate with revolver
+    if SILENT_CONFIG.ClientBullet.Mode == "LegitSniper" and not IsRevolverEquipped() then return end
+    
     SilentTarget = GetSilentTarget()
     
-    if not SilentTarget or not SilentTarget.Character or not IsAlive(SilentTarget) then return end
+    -- HOLD CHECK MODE: If target dies mid-hold, don't switch to new target until release
+    if SILENT_CONFIG.HoldCheckEnabled then
+        local uis = game:GetService("UserInputService")
+        local isHoldingMouse = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+        
+        if isHoldingMouse and not WasHolding then
+            -- Just pressed - clear any old lock, use new target
+            HeldTarget = nil
+        elseif isHoldingMouse and SilentTarget and not IsAlive(SilentTarget) and not HeldTarget then
+            -- Target just died AND no lock yet - lock it so we don't auto-switch
+            HeldTarget = SilentTarget
+        elseif isHoldingMouse and HeldTarget then
+            -- Still holding with a locked target - keep using it even if dead
+            SilentTarget = HeldTarget
+        elseif not isHoldingMouse then
+            -- Released - clear locked target
+            HeldTarget = nil
+        end
+        
+        WasHolding = isHoldingMouse
+    end
+    
+    if not SilentTarget or not SilentTarget.Character then return end
+    if not SILENT_CONFIG.HoldCheckEnabled and not IsAlive(SilentTarget) then return end
     
     if SILENT_CONFIG.Main.AutoLock.Enabled and SILENT_CONFIG.Main.AutoLock.Mode == "FOV" then
         if not InSilentFOV(SilentTarget) then return end
@@ -8286,12 +8347,33 @@ local function HookGunHandler()
                 results[2] = HVH_CachedAimPart
                 results[3] = (HVH_CachedAimPosition - muz).Unit
             
-            -- NORMAL MODE: Use normal Silent Aim (with all options)
-            elseif SILENT_CONFIG.Enabled and SILENT_CONFIG.ClientBullet.Enabled and CachedAimPosition and CachedAimPart then
+            -- NORMAL MODE: Use normal Silent Aim (with all options) - keeps gun spread
+            elseif SILENT_CONFIG.Enabled and SILENT_CONFIG.ClientBullet.Enabled and CachedAimPosition and CachedAimPart and SILENT_CONFIG.ClientBullet.Mode == "Normal" then
                 local muz = args.ForcedOrigin or (args.Handle and args.Handle:FindFirstChild("Muzzle") and args.Handle.Muzzle.WorldPosition) or lplr.Character.Head.Position
                 results[1] = CachedAimPosition
                 results[2] = CachedAimPart
-                results[3] = (CachedAimPosition - muz).Unit
+                -- DON'T override results[3] - let gun's natural spread apply
+            
+            -- SNIPER MODE: Use normal Silent Aim (with all options) - removes spread, 400+ range
+            elseif SILENT_CONFIG.Enabled and SILENT_CONFIG.ClientBullet.Enabled and CachedAimPosition and CachedAimPart and SILENT_CONFIG.ClientBullet.Mode == "Sniper" then
+                local muz = args.ForcedOrigin or (args.Handle and args.Handle:FindFirstChild("Muzzle") and args.Handle.Muzzle.WorldPosition) or lplr.Character.Head.Position
+                results[1] = CachedAimPosition
+                results[2] = CachedAimPart
+                results[3] = (CachedAimPosition - muz).Unit  -- OVERRIDE direction for perfect bullets
+            
+            -- LEGIT SNIPER MODE: Revolver only - removes spread, 400+ range
+            elseif SILENT_CONFIG.Enabled and SILENT_CONFIG.ClientBullet.Enabled and CachedAimPosition and CachedAimPart and SILENT_CONFIG.ClientBullet.Mode == "LegitSniper" and IsRevolverEquipped() then
+                local muz = args.ForcedOrigin or (args.Handle and args.Handle:FindFirstChild("Muzzle") and args.Handle.Muzzle.WorldPosition) or lplr.Character.Head.Position
+                results[1] = CachedAimPosition
+                results[2] = CachedAimPart
+                results[3] = (CachedAimPosition - muz).Unit  -- OVERRIDE direction for perfect bullets
+            
+            -- LEGIT REDIRECTION MODE: Revolver only - Sniper range but bullets LOOK redirected on client
+            elseif SILENT_CONFIG.Enabled and SILENT_CONFIG.ClientBullet.Enabled and CachedAimPosition and CachedAimPart and SILENT_CONFIG.ClientBullet.Mode == "LegitRedirection" and IsRevolverEquipped() then
+                local muz = args.ForcedOrigin or (args.Handle and args.Handle:FindFirstChild("Muzzle") and args.Handle.Muzzle.WorldPosition) or lplr.Character.Head.Position
+                results[1] = CachedAimPosition
+                results[2] = CachedAimPart
+                results[3] = (CachedAimPosition - muz).Unit  -- OVERRIDE direction for perfect bullets
             end
             
             return table.unpack(results)
@@ -8307,7 +8389,8 @@ local function HookGunHandler()
             end
             
             -- If ClientBullet enabled, use original getAim (don't interfere)
-            if SILENT_CONFIG.ClientBullet.Enabled then 
+            -- EXCEPT for LegitRedirection mode which should show redirected bullets
+            if SILENT_CONFIG.ClientBullet.Enabled and SILENT_CONFIG.ClientBullet.Mode ~= "LegitRedirection" then 
                 return orig_get_aim(p0, p1) 
             end
             
@@ -8434,11 +8517,14 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
                     task.wait(0.05)
                 end
                 
-                -- Unlock constraints
-                print("Euleon")
-                for _, obj in pairs(myHrp:GetChildren()) do
-                    if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("AlignPosition") or obj:IsA("BodyGyro") then
-                        pcall(function() obj:Destroy() end)
+                -- Unlock constraints (throttled - only every 12 frames)
+                descendantCheckCounter = (descendantCheckCounter + 1) % 12
+                if descendantCheckCounter == 0 then
+                    print("Euleon")
+                    for _, obj in pairs(myHrp:GetChildren()) do
+                        if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("AlignPosition") or obj:IsA("BodyGyro") then
+                            pcall(function() obj:Destroy() end)
+                        end
                     end
                 end
                 
@@ -8815,6 +8901,10 @@ end))
 local function UpdateCamlockCamera()
     if not CAMLOCK_CONFIG.Enabled or not CAMLOCK_CONFIG.Active then return end
     
+    -- Throttle camlock updates to every other frame
+    camlockUpdateCounter = (camlockUpdateCounter + 1) % 2
+    if camlockUpdateCounter ~= 0 then return end
+    
     -- Macro key check - disable camlock when macro key is held
     if CAMLOCK_CONFIG.MacroEnabled then
         local UserInputService = game:GetService("UserInputService")
@@ -8837,19 +8927,24 @@ local function UpdateCamlockCamera()
         end
     end
     
-    -- Weapon Check
+    -- Weapon Check (throttled - only every 60 frames to reduce GetChildren calls)
     if CAMLOCK_CONFIG.WeaponCheck then
         local lplr_char = lplr.Character
         if not lplr_char then return end
-        local has_weapon = false
-        for _, item in pairs(lplr_char:GetChildren()) do
-            if item:IsA("Tool") then
-                has_weapon = true
-                break
+        
+        -- Throttle weapon check
+        descendantCheckCounter = (descendantCheckCounter + 1) % 60
+        if descendantCheckCounter == 0 then
+            local has_weapon = false
+            for _, item in pairs(lplr_char:GetChildren()) do
+                if item:IsA("Tool") then
+                    has_weapon = true
+                    break
+                end
             end
-        end
-        if not has_weapon then
-            return  -- No weapon, disable camlock
+            if not has_weapon then
+                return  -- No weapon, disable camlock
+            end
         end
     end
     
@@ -9159,6 +9254,7 @@ local silentaimCombat = pageSilent:InDevSection({ Name = "Silent Aim", Side = "R
 
 silentaimCombat:Toggle({ Name = "Enabled", Pointer = "silent_enabled", Default = true, Callback = function(v) SILENT_CONFIG.Enabled = v end })
 silentaimCombat:Toggle({ Name = "Client Bullet", Pointer = "silent_clientbullet", Default = true, Callback = function(v) SILENT_CONFIG.ClientBullet.Enabled = v end })
+silentaimCombat:Dropdown({ Name = "CB Mode", Options = {"Normal", "Sniper", "LegitSniper", "LegitRedirection"}, Default = "Normal", Pointer = "silent_cbmode", Callback = function(v) SILENT_CONFIG.ClientBullet.Mode = v end })
 silentaimCombat:Slider({ Name = "FOV Radius", min = 10, max = 500, def = 90, pointer = "silent_fov", callback = function(v) SILENT_CONFIG.FOV.Radius = v end })
 silentaimCombat:Toggle({ Name = "Show FOV", Pointer = "silent_showfov", Default = false, Callback = function(v) SILENT_CONFIG.FOV.ShowFOV = v end })
 silentaimCombat:Toggle({ Name = "Filled", Pointer = "silent_filled", Default = false, Callback = function(v) SILENT_CONFIG.FOV.Filled = v end })
@@ -9180,6 +9276,7 @@ silentaimCombat:Toggle({ Name = "Macro Disable", Pointer = "silent_macro", Defau
 silentaimCombat:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) SILENT_CONFIG.MacroKey = key end })
 silentaimCombat:Toggle({ Name = "Anti Aim Viewer", Pointer = "silent_antiaim", Default = true, Callback = function(v) SILENT_CONFIG.AntiAimViewer = v end })
 silentaimCombat:Toggle({ Name = "Weapon Check", Pointer = "silent_weaponcheck", Default = true, Callback = function(v) SILENT_CONFIG.WeaponCheck = v end })
+silentaimCombat:Toggle({ Name = "Hold Check", Pointer = "silent_holdcheck", Default = false, Callback = function(v) SILENT_CONFIG.HoldCheckEnabled = v end })
 
 -- Camlock Settings (Left side)
 local camlockCombat = pageCamlock:InDevSection({ Name = "Camlock Settings", Side = "Left" })
@@ -9444,53 +9541,9 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Stepped:Connect(f
     end
 end))
 
--- ===== AUTO-SAVE CONFIG EVERY 30 SECONDS =====
-table.insert(EULEON_CONNECTIONS, rs.Heartbeat:Connect(function()
-    if tick() % 30 < 0.016 then
-        SaveConfig()
-    end
-end))
-
 -- Save config on script exit
 game:BindToClose(function()
     SaveConfig()
-end)
-
--- ===== HOLD SHOOT STANDALONE =====
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-
-local holdshoot_active = false
-
--- Detect mouse button 1 press
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        holdshoot_active = true
-    end
-end)
-
--- Detect mouse button 1 release
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        holdshoot_active = false
-    end
-end)
-
--- Spam activate while holding
-RunService.RenderStepped:Connect(function()
-    if not holdshoot_active then return end
-    
-    local player = Players.LocalPlayer
-    if not player or not player.Character then return end
-    
-    local tool = player.Character:FindFirstChildOfClass("Tool")
-    if tool then
-        pcall(function()
-            tool:Activate()
-        end)
-    end
 end)
 
 print("Euleon")
