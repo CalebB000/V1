@@ -27,6 +27,14 @@ local function CreateCleanup()
         end
         EULEON_CONNECTIONS = {}
         
+        -- Disconnect all azure connections (UI library)
+        if getgenv().azureConnections then
+            for _, conn in ipairs(getgenv().azureConnections) do
+                pcall(function() if conn and conn.Connected then conn:Disconnect() end end)
+            end
+            getgenv().azureConnections = {}
+        end
+        
         -- Unhook all functions
         for _, hook_info in ipairs(EULEON_HOOKS) do
             pcall(function() 
@@ -7873,7 +7881,6 @@ local CachedAimPart, CachedAimPosition, SilentTarget = nil, nil, nil
 local HeldTarget = nil  -- Target locked during mouse hold
 local WasHolding = false  -- Track if mouse was held last frame
 local descendantCheckCounter = 0  -- Throttle GetDescendants checks (only 5x per frame)
-local wallCheckCounter = 0  -- Throttle wall check (only every 3 frames)
 local fovDrawCounter = 0  -- Throttle FOV drawing (only every 2 frames)
 local camlockUpdateCounter = 0  -- Throttle camlock camera updates (every other frame)
 
@@ -8171,11 +8178,19 @@ local function GetClosestPlayerSpherical()
     local cam = game:GetService("Workspace").CurrentCamera
     local fovRadius = SILENT_CONFIG.FOV.Radius  -- Tight FOV radius
     local lplr = game:GetService("Players").LocalPlayer
+    local DISTANCE_CULL = 400  -- Only check players within 400 studs
+    
+    local lplrHrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+    if not lplrHrp then return nil end
     
     for _, player in pairs(game:GetService("Players"):GetPlayers()) do
         if player ~= lplr and IsAlive(player) then
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
+                -- DISTANCE CULL: Skip players beyond 400 studs
+                local worldDist = (hrp.Position - lplrHrp.Position).Magnitude
+                if worldDist > DISTANCE_CULL then continue end
+                
                 local screenPos = cam:WorldToScreenPoint(hrp.Position)
                 -- Distance from target to YOUR CURSOR (center of screen)
                 local distFromCursor = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
@@ -8233,13 +8248,10 @@ local function GetSilentAimPosition(character)
     
     if not (bp and bpos) then return nil, nil end
     
-    -- Wallcheck throttled to every 2 frames for FPS (still responsive)
+    -- Wallcheck - NO THROTTLE (accuracy > FPS)
     if SILENT_CONFIG.WallCheck then
-        wallCheckCounter = (wallCheckCounter + 1) % 2
-        if wallCheckCounter == 0 then
-            if not DoWallCheck(bp) then 
-                return nil, nil 
-            end
+        if not DoWallCheck(bp) then 
+            return nil, nil 
         end
     end
     
