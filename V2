@@ -6599,6 +6599,7 @@ end
 local SelectedTarget = nil
 local TeleportActive = false
 local AutoStompEnabled = false
+local AutoSpectateEnabled = false
 local RiskyModeEnabled = false
 local AntiAnchorEnabled = false
 local OriginalPosition = nil
@@ -6633,7 +6634,6 @@ local VelocitySamples = {}
 
 local pageSilent = library:Page({ Name = "Silent" })
 local pageCamlock = library:Page({ Name = "Camlock" })
-local pagePrefire = library:Page({ Name = "Prefire" })
 local pageRage = library:Page({ Name = "Rage" })
 local pageVisuals = library:Page({ Name = "Visuals" })
 local espVisuals = pageVisuals:Section({ Name = "ESP" })
@@ -7664,6 +7664,7 @@ game:GetService("Players").PlayerAdded:Connect(function() if targetDropdown then
 game:GetService("Players").PlayerRemoving:Connect(function() if targetDropdown then targetDropdown:Refresh(GetServerPlayers()) end end)
 
 hvhRage:Toggle({ Name = "Anti-Anchor", Pointer = "hvh_antianchor", Default = false, Callback = function(v) AntiAnchorEnabled = v end })
+hvhRage:Toggle({ Name = "Auto Spectate", Pointer = "hvh_autospectate", Default = false, Callback = function(v) AutoSpectateEnabled = v end })
 hvhRage:Toggle({ Name = "Risky Mode", Pointer = "hvh_risky", Default = false, Callback = function(v) RiskyModeEnabled = v end })
 hvhRage:Toggle({ Name = "Auto Stomp", Pointer = "hvh_stomp", Default = false, Callback = function(v) AutoStompEnabled = v end })
 
@@ -7728,19 +7729,284 @@ hvhRage:Button({ Name = "START/STOP", Callback = function()
     end
 end })
 
+-- ===== VOID DESYNC KILLER BUTTON =====
+hvhRage:Button({ Name = "VOID DESYNC KILL", Callback = function()
+    local lplr = game:GetService("Players").LocalPlayer
+    local InputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    
+    local voidDesyncActive = true
+    local voidSavedCFrame = nil
+    local voidHooked = false
+    
+    -- Find nearest player
+    local char = lplr.Character
+    if not char then print("No character") return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then print("No HRP") return end
+    
+    local nearest = nil
+    local minDist = math.huge
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= lplr and player.Character then
+            local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp then
+                local dist = (hrp.Position - targetHrp.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    nearest = player
+                end
+            end
+        end
+    end
+    
+    if not nearest then print("No target found") return end
+    
+    print("🎯 Void Desync Kill activated on: " .. nearest.Name)
+    
+    -- Hook only once
+    if not voidHooked then
+        voidHooked = true
+        
+        local mt = getrawmetatable(hrp)
+        local originalIndex = mt.__index
+        
+        mt.__index = newcclosure(function(self, key)
+            if key == "CFrame" and voidDesyncActive and lplr.Character then
+                local currentHrp = lplr.Character:FindFirstChild("HumanoidRootPart")
+                if self == currentHrp and voidSavedCFrame then
+                    return voidSavedCFrame  -- Client sees real position
+                end
+            end
+            return originalIndex(self, key)
+        end)
+    end
+    
+    -- Void desync kill loop
+    local shotFired = false
+    local loopConnection = nil
+    
+    loopConnection = RunService.Heartbeat:Connect(function()
+        if not voidDesyncActive or not nearest or not nearest.Character then
+            if loopConnection then loopConnection:Disconnect() end
+            voidDesyncActive = false
+            return
+        end
+        
+        local currentChar = lplr.Character
+        if not currentChar then
+            if loopConnection then loopConnection:Disconnect() end
+            return
+        end
+        
+        local currentHrp = currentChar:FindFirstChild("HumanoidRootPart")
+        local targetHrp = nearest.Character:FindFirstChild("HumanoidRootPart")
+        
+        if not currentHrp or not targetHrp then
+            if loopConnection then loopConnection:Disconnect() end
+            return
+        end
+        
+        -- Save real position
+        voidSavedCFrame = currentHrp.CFrame
+        
+        -- Position 10 studs BELOW target (for shooting from underneath)
+        currentHrp.CFrame = targetHrp.CFrame + Vector3.new(0, -10, 0)
+        
+        RunService.RenderStepped:Wait()
+        
+        -- Restore client position via hook
+        currentHrp.CFrame = voidSavedCFrame
+        
+        -- AUTO SHOOT ONCE
+        if not shotFired then
+            pcall(function()
+                local gun = currentChar:FindFirstChild("[Double-Barrel SG]")
+                if gun then
+                    gun:Activate()
+                    shotFired = true
+                    task.wait(0.5)  -- Wait before stopping
+                    voidDesyncActive = false
+                    if loopConnection then loopConnection:Disconnect() end
+                    print("✅ Void Desync Kill complete!")
+                end
+            end)
+        end
+    end)
+end })
+
+-- ===== AUTO VOID DESYNC KILLER =====
+hvhRage:Button({ Name = "VOID DESYNC DISABLED", Callback = function() print("ℹ️ Void desync now runs automatically!") end })
+
+-- ===== AUTO SPECTATE LOOP =====
+local spectateDisabled = false
+
+-- Keybind to unlock/stop spectating (U key)
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.U then
+        spectateDisabled = not spectateDisabled
+        print(spectateDisabled and "❌ Spectate OFF" or "✅ Spectate ON")
+    end
+end)
+
+table.insert(EULEON_CONNECTIONS, game:GetService("RunService").RenderStepped:Connect(function()
+    if not AutoSpectateEnabled or spectateDisabled or not SelectedTarget or not SelectedTarget.Character then
+        -- Reset camera when spectate is off
+        local lplr = game:GetService("Players").LocalPlayer
+        if lplr.Character then
+            local humanoid = lplr.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                workspace.CurrentCamera.CameraSubject = humanoid
+            end
+        end
+        return
+    end
+    
+    local camera = workspace.CurrentCamera
+    local targetHum = SelectedTarget.Character:FindFirstChildOfClass("Humanoid")
+    
+    -- Normal spectate view
+    if targetHum then
+        camera.CameraSubject = targetHum
+        camera.CameraType = Enum.CameraType.Custom
+    end
+end))
+
+-- ===== VOID DETECTION - CONDITIONAL AUTO/DESYNC =====
+local voidDesyncActive = false
+local voidSavedCFrame = nil
+local voidHooked = false
+local targetInVoid = false  -- Target is in void (block shooting)
+local lplr = game:GetService("Players").LocalPlayer
+local lastTeleportActive = false
+
+-- Setup hook ONCE
+local function SetupVoidDesyncHook()
+    if voidHooked then return end
+    voidHooked = true
+    
+    local char = lplr.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    pcall(function()
+        local mt = getrawmetatable(hrp)
+        local originalIndex = mt.__index
+        
+        mt.__index = newcclosure(function(self, key)
+            if key == "CFrame" and voidDesyncActive and lplr.Character then
+                local currentHrp = lplr.Character:FindFirstChild("HumanoidRootPart")
+                if self == currentHrp and voidSavedCFrame then
+                    return voidSavedCFrame
+                end
+            end
+            return originalIndex(self, key)
+        end)
+    end)
+end
+
+-- ALWAYS check for void (even when TeleportActive is off)
+table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect(function()
+    local char = lplr.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    -- Reset if TeleportActive turned off (but NOT during void desync)
+    if lastTeleportActive and not TeleportActive and not voidDesyncActive then
+        voidDesyncActive = false
+        InVoid = false
+        targetInVoid = false
+        voidHooked = false
+        -- Properly reset position
+        if OriginalPosition then
+            hrp.CFrame = OriginalPosition
+            pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0,0,0) end)
+        end
+    end
+    lastTeleportActive = TeleportActive
+    
+    -- Check target void status
+    if TeleportActive and SelectedTarget and SelectedTarget.Character then
+        local targetHrp = SelectedTarget.Character:FindFirstChild("HumanoidRootPart")
+        local targetHead = SelectedTarget.Character:FindFirstChild("Head")
+        
+        if not targetHrp or not targetHead then
+            InVoid = false
+            voidDesyncActive = false
+            return
+        end
+        
+        -- Check if target is in void
+        if targetHrp.Position.Y < -500 or targetHrp.Position.Y > 100000 then
+            -- TARGET IN VOID - Desync mode
+            targetInVoid = true
+            InVoid = true  -- Also set InVoid for autoshoot blocking
+            voidDesyncActive = true
+            
+            if not voidHooked then
+                SetupVoidDesyncHook()
+            end
+            
+            -- Save real position
+            voidSavedCFrame = hrp.CFrame
+            
+            -- Desync 10 STUDS BELOW TARGET
+            pcall(function()
+                hrp.CFrame = targetHrp.CFrame + Vector3.new(0, -10, 0)
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            end)
+            
+            game:GetService("RunService").RenderStepped:Wait()
+            
+            -- Restore via hook
+            hrp.CFrame = voidSavedCFrame
+            
+            -- SILENT AIM
+            CachedAimPart = targetHead
+            CachedAimPosition = targetHead.Position
+        else
+            -- TARGET NOT IN VOID
+            targetInVoid = false
+            InVoid = false
+            voidDesyncActive = false
+            voidHooked = false
+        end
+    else
+        -- Not teleporting or no target
+        if voidDesyncActive then
+            voidDesyncActive = false
+            InVoid = false
+            voidHooked = false
+        end
+    end
+end))
+
+-- ===== AUTO VOID DESYNC (STABLE - NO KEYBIND, NO AUTOSHOOT) =====
+
 -- ===== COMPLETE SILENT AIM WITH PROPER CLOSEST POINT =====
 local SILENT_CONFIG = {
     Enabled = true,
     Main = { Enabled = true, Hitchance = 100, Parts = {"Head", "UpperTorso", "HumanoidRootPart"}, ClosestPoint = { Enabled = true, Mode = "Advanced", Scale = 5.5, Density = 2 }, Prediction = { Enabled = true, Mode = "Basic", Basic = 0 }, AntiCurve = { Enabled = false }, AutoLock = { Enabled = true, Mode = "FOV" } },
+    DistanceCull = 0,  -- 0 = disabled, 150/200/300/400 = studs
     ClientBullet = { Enabled = true, Mode = "Normal" },  -- Modes: "Normal" (with spread), "Sniper" (no spread, OP range), "LegitSniper" (revolver only)
     FOV = { Type = "Circle", Enabled = true, ShowFOV = true, Radius = 209, Color = Color3.fromRGB(255, 68, 80), FocusColor = Color3.fromRGB(255, 255, 255), Filled = true, FillTransparency = 0.2, Transparency = 1, Thickness = 1, OutlineThickness = 2.5, OutlineColor = Color3.fromRGB(255, 255, 255) },
     AntiAimViewer = true,
     WallCheck = false,
+    WallCheckThrottle = 1,  -- 1 = every frame, 2 = every 2 frames, etc
     WeaponCheck = true,
     FirstPersonCheck = false,
     MacroEnabled = false,
     MacroKey = Enum.KeyCode.M,
     HoldCheckEnabled = false,
+    HoldCheckMode = "NoSwitch",  -- "NoSwitch" = don't switch targets in same press, "WeaponSwitch" = allow if weapon changes
 }
 
 local CAMLOCK_CONFIG = {
@@ -7776,31 +8042,6 @@ local MISC_CONFIG = {
     MemorySpoofMax = 800,
 }
 
-local PREFIRE_CONFIG = {
-    Enabled = false,
-    KeybindEnabled = true,
-    KeybindKey = "T",
-    DetectionRange = 1000,
-    RandomDelayEnabled = true,
-    RandomDelayMin = 0.17,
-    RandomDelayMax = 0.20,
-    DelayPresetsEnabled = false,
-    Preset1Enabled = true,
-    Preset1Keybind = Enum.KeyCode.Y,
-    Preset1Delay = 0.20,
-    Preset2Enabled = true,
-    Preset2Keybind = Enum.KeyCode.U,
-    Preset2Delay = 0.0,
-    CurrentPreset = 0,
-    Delay = 0.0,
-    ShotCount = 1,
-    TargetSpecificEnabled = true,
-    TargetSpecificPlayer = nil,
-    TargetSpecificNotifications = true,
-    TargetSpecificStayLocked = true,
-    TargetSpecificStayLockedKey = Enum.KeyCode.L,
-}
-
 -- ===== CONFIG SAVE/LOAD SYSTEM =====
 local CONFIG_PATH = "euleon_config.json"
 
@@ -7809,7 +8050,6 @@ local function SaveConfig()
         SILENT = SILENT_CONFIG,
         CAMLOCK = CAMLOCK_CONFIG,
         MISC = MISC_CONFIG,
-        PREFIRE = PREFIRE_CONFIG,
     }
     local success = pcall(function()
         writefile(CONFIG_PATH, game:GetService("HttpService"):JSONEncode(config_data))
@@ -7878,13 +8118,85 @@ exploitsMisc:Slider({Name = "Memory Max", min = 100, max = 2000, def = 800, deci
 local CachedAimPart, CachedAimPosition, SilentTarget = nil, nil, nil
 
 -- ===== HOLD CHECK MODE =====
-local HeldTarget = nil  -- Target locked during mouse hold
+local HeldTarget = nil  -- Current target being held/aimed at
+local HeldWeapon = nil  -- Weapon equipped at start of hold
+local AimBlockedByKO = false  -- Track if aim is blocked due to K.O in hold check
 local WasHolding = false  -- Track if mouse was held last frame
 local descendantCheckCounter = 0  -- Throttle GetDescendants checks (only 5x per frame)
+local wallCheckCounter = 0  -- Throttle wall check (configurable)
 local fovDrawCounter = 0  -- Throttle FOV drawing (only every 2 frames)
 local camlockUpdateCounter = 0  -- Throttle camlock camera updates (every other frame)
 
--- ===== SEPARATE HVH SILENT AIM (HEAD LOCK ONLY) =====
+-- ===== MINIMAL HOLD CHECK SYSTEM (STANDALONE) =====
+local HoldCheckActive = false
+local HoldCheckTargetInFOV = nil
+local HoldCheckKilledTarget = nil
+local HoldCheckWeapon = nil
+
+local function UpdateHoldCheck()
+    if not SILENT_CONFIG.HoldCheckEnabled then return end
+    
+    local uis = game:GetService("UserInputService")
+    local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+    local lplr = game:GetService("Players").LocalPlayer
+    local currentWeapon = lplr.Character and lplr.Character:FindFirstChildOfClass("Tool")
+    local currentWeaponName = currentWeapon and currentWeapon.Name or ""
+    
+    -- JUST PRESSED
+    if isHoldingLMB and not HoldCheckActive then
+        HoldCheckActive = true
+        HoldCheckWeapon = currentWeaponName
+        HoldCheckKilledTarget = nil
+        HoldCheckTargetInFOV = nil
+    end
+    
+    -- HOLDING
+    if isHoldingLMB and HoldCheckActive then
+        -- Find who I'm aiming at (in FOV)
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= lplr and IsAlive(player) and InSilentFOV(player) then
+                HoldCheckTargetInFOV = player
+                break
+            end
+        end
+        
+        -- Check if my target got K.O'd (I killed them)
+        if HoldCheckTargetInFOV then
+            local be = HoldCheckTargetInFOV.Character and HoldCheckTargetInFOV.Character:FindFirstChild("BodyEffects")
+            if be then
+                local ko = be:FindFirstChild("K.O")
+                if ko and ko.Value then
+                    HoldCheckKilledTarget = HoldCheckTargetInFOV  -- I KILLED THIS TARGET
+                end
+            end
+        end
+        
+        -- If I killed someone, check mode
+        if HoldCheckKilledTarget then
+            if SILENT_CONFIG.HoldCheckMode == "NoSwitch" then
+                return true  -- BLOCK AIM
+            elseif SILENT_CONFIG.HoldCheckMode == "WeaponSwitch" then
+                if currentWeaponName == HoldCheckWeapon then
+                    return true  -- BLOCK AIM (same weapon)
+                else
+                    HoldCheckKilledTarget = nil  -- Weapon changed, unblock
+                    return false
+                end
+            end
+        end
+    end
+    
+    -- RELEASED
+    if not isHoldingLMB and HoldCheckActive then
+        HoldCheckActive = false
+        HoldCheckKilledTarget = nil
+        HoldCheckTargetInFOV = nil
+        HoldCheckWeapon = nil
+        return false
+    end
+    
+    return false
+end
 local HVH_CachedAimPosition = nil
 local HVH_CachedAimPart = nil
 
@@ -7926,20 +8238,13 @@ local function DrawFOV()
             pcall(function() FOV_Box_Outline:Remove() end)
             FOV_Box_Outline = nil 
         end
-        return  -- Early exit, skip throttle and all drawing
+        return  -- Early exit, skip all drawing
     end
-    
-    -- Throttle FOV drawing to every 2 frames (only if enabled)
-    fovDrawCounter = (fovDrawCounter + 1) % 2
-    if fovDrawCounter ~= 0 then return end
     
     local cam = game:GetService("Workspace").CurrentCamera
     local uis = game:GetService("UserInputService")
-    
-    -- Get cursor position
-    local mouse = game:GetService("Players").LocalPlayer:GetMouse()
-    -- Adjust Y coordinate - fine-tuned offset
-    local cursorPos = Vector2.new(mouse.X, mouse.Y + 50)
+    local mousePos = uis:GetMouseLocation()
+    local cursorPos = Vector2.new(mousePos.X, mousePos.Y + 50)  -- +50 offset to match targeting
     
     -- Use color picker values if available, otherwise use config
     local fovColor = fov.Color
@@ -8159,14 +8464,17 @@ end
 
 local function InSilentFOV(player)
     if not player or not player.Character then return false end
-    local fovRadius = SILENT_CONFIG.FOV.Radius  -- Tight FOV in pixels
+    local fovRadius = SILENT_CONFIG.FOV.Radius
     local cam = game:GetService("Workspace").CurrentCamera
+    local uis = game:GetService("UserInputService")
     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
     
     local screenPos = cam:WorldToScreenPoint(hrp.Position)
-    -- Distance from target to CENTER of screen (cursor)
-    local distFromCursor = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
+    local mousePos = uis:GetMouseLocation()
+    
+    -- Distance from target to YOUR ACTUAL CURSOR POSITION (with offset)
+    local distFromCursor = math.sqrt((screenPos.X - mousePos.X)^2 + (screenPos.Y + 50 - mousePos.Y)^2)
     
     -- Must be in FOV circle AND visible
     return distFromCursor <= fovRadius and screenPos.Z > 0
@@ -8176,24 +8484,27 @@ local function GetClosestPlayerSpherical()
     local closestPlayer = nil
     local closestDistToCursor = math.huge
     local cam = game:GetService("Workspace").CurrentCamera
-    local fovRadius = SILENT_CONFIG.FOV.Radius  -- Tight FOV radius
+    local uis = game:GetService("UserInputService")
+    local fovRadius = SILENT_CONFIG.FOV.Radius
     local lplr = game:GetService("Players").LocalPlayer
-    local DISTANCE_CULL = 400  -- Only check players within 400 studs
+    local DISTANCE_CULL = SILENT_CONFIG.DistanceCull
     
-    local lplrHrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
-    if not lplrHrp then return nil end
+    local lplrHrp = DISTANCE_CULL > 0 and lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+    local mousePos = uis:GetMouseLocation()
     
     for _, player in pairs(game:GetService("Players"):GetPlayers()) do
         if player ~= lplr and IsAlive(player) then
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
-                -- DISTANCE CULL: Skip players beyond 400 studs
-                local worldDist = (hrp.Position - lplrHrp.Position).Magnitude
-                if worldDist > DISTANCE_CULL then continue end
+                -- Apply distance cull if enabled
+                if DISTANCE_CULL > 0 and lplrHrp then
+                    local worldDist = (hrp.Position - lplrHrp.Position).Magnitude
+                    if worldDist > DISTANCE_CULL then continue end
+                end
                 
                 local screenPos = cam:WorldToScreenPoint(hrp.Position)
-                -- Distance from target to YOUR CURSOR (center of screen)
-                local distFromCursor = math.sqrt((screenPos.X - cam.ViewportSize.X/2)^2 + (screenPos.Y - cam.ViewportSize.Y/2)^2)
+                -- Distance from target to YOUR ACTUAL CURSOR POSITION (with +50 offset)
+                local distFromCursor = math.sqrt((screenPos.X - mousePos.X)^2 + (screenPos.Y + 50 - mousePos.Y)^2)
                 
                 -- MUST be in FOV circle to even consider
                 if distFromCursor <= fovRadius and screenPos.Z > 0 then
@@ -8248,10 +8559,13 @@ local function GetSilentAimPosition(character)
     
     if not (bp and bpos) then return nil, nil end
     
-    -- Wallcheck - NO THROTTLE (accuracy > FPS)
+    -- Wallcheck with throttle slider (1 = every frame, 2 = every 2 frames, etc)
     if SILENT_CONFIG.WallCheck then
-        if not DoWallCheck(bp) then 
-            return nil, nil 
+        wallCheckCounter = (wallCheckCounter + 1) % SILENT_CONFIG.WallCheckThrottle
+        if wallCheckCounter == 0 then
+            if not DoWallCheck(bp) then 
+                return nil, nil 
+            end
         end
     end
     
@@ -8271,6 +8585,9 @@ local function IsRevolverEquipped()
 end
 
 local function UpdateCachedAim()
+    -- DRAW FOV FIRST - must always run regardless of target status
+    DrawFOV()
+    
     CachedAimPart = nil
     CachedAimPosition = nil
     
@@ -8299,26 +8616,9 @@ local function UpdateCachedAim()
     
     SilentTarget = GetSilentTarget()
     
-    -- HOLD CHECK MODE: If target dies mid-hold, don't switch to new target until release
-    if SILENT_CONFIG.HoldCheckEnabled then
-        local uis = game:GetService("UserInputService")
-        local isHoldingMouse = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-        
-        if isHoldingMouse and not WasHolding then
-            -- Just pressed - clear any old lock, use new target
-            HeldTarget = nil
-        elseif isHoldingMouse and SilentTarget and not IsAlive(SilentTarget) and not HeldTarget then
-            -- Target just died AND no lock yet - lock it so we don't auto-switch
-            HeldTarget = SilentTarget
-        elseif isHoldingMouse and HeldTarget then
-            -- Still holding with a locked target - keep using it even if dead
-            SilentTarget = HeldTarget
-        elseif not isHoldingMouse then
-            -- Released - clear locked target
-            HeldTarget = nil
-        end
-        
-        WasHolding = isHoldingMouse
+    -- CHECK HOLD CHECK - block aim if needed
+    if UpdateHoldCheck() then
+        SilentTarget = nil  -- Block aim
     end
     
     if not SilentTarget or not SilentTarget.Character then return end
@@ -8420,7 +8720,6 @@ end
 table.insert(EULEON_CONNECTIONS, game:GetService("RunService").RenderStepped:Connect(function()
     UpdateHVHAim()
     UpdateCachedAim()
-    DrawFOV()
 end))
 
 HookGunHandler()
@@ -9262,11 +9561,31 @@ table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Heartbeat:Connect
 end))
 
 -- SILENT AIM SECTION (Right side)
-local silentaimCombat = pageSilent:InDevSection({ Name = "Silent Aim", Side = "Right" })
+-- Silent Aim Settings (Left side)
+local silentaimLeft = pageSilent:InDevSection({ Name = "Silent Aim", Side = "Left" })
 
-silentaimCombat:Toggle({ Name = "Enabled", Pointer = "silent_enabled", Default = true, Callback = function(v) SILENT_CONFIG.Enabled = v end })
-silentaimCombat:Toggle({ Name = "Client Bullet", Pointer = "silent_clientbullet", Default = true, Callback = function(v) SILENT_CONFIG.ClientBullet.Enabled = v end })
-silentaimCombat:Dropdown({ Name = "CB Mode", Options = {"Normal", "Sniper", "LegitSniper", "LegitRedirection"}, Default = "Normal", Pointer = "silent_cbmode", Callback = function(v) SILENT_CONFIG.ClientBullet.Mode = v end })
+silentaimLeft:Toggle({ Name = "Enabled", Pointer = "silent_enabled", Default = true, Callback = function(v) SILENT_CONFIG.Enabled = v end })
+silentaimLeft:Dropdown({ Name = "Distance Optimization", Options = {"Disabled", "150 Studs", "200 Studs", "300 Studs", "400 Studs"}, Default = "Disabled", Pointer = "silent_distcull", Callback = function(v) 
+    if v == "Disabled" then SILENT_CONFIG.DistanceCull = 0
+    elseif v == "150 Studs" then SILENT_CONFIG.DistanceCull = 150
+    elseif v == "200 Studs" then SILENT_CONFIG.DistanceCull = 200
+    elseif v == "300 Studs" then SILENT_CONFIG.DistanceCull = 300
+    elseif v == "400 Studs" then SILENT_CONFIG.DistanceCull = 400
+    end
+end })
+silentaimLeft:Toggle({ Name = "Client Bullet", Pointer = "silent_clientbullet", Default = true, Callback = function(v) SILENT_CONFIG.ClientBullet.Enabled = v end })
+silentaimLeft:Dropdown({ Name = "CB Mode", Options = {"Normal", "Sniper", "LegitSniper", "LegitRedirection"}, Default = "Normal", Pointer = "silent_cbmode", Callback = function(v) SILENT_CONFIG.ClientBullet.Mode = v end })
+silentaimLeft:Toggle({ Name = "Closest Point", Pointer = "silent_cp", Default = true, Callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Enabled = v end })
+silentaimLeft:Slider({ Name = "CP Scale", min = 1, max = 20, def = 5.5, decimals = 0.1, pointer = "silent_cp_scale", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Scale = v end })
+silentaimLeft:Slider({ Name = "CP Density", min = 1, max = 10, def = 2, pointer = "silent_cp_density", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Density = v end })
+silentaimLeft:Toggle({ Name = "Wall Check", Pointer = "silent_wallcheck", Default = true, Callback = function(v) SILENT_CONFIG.WallCheck = v end })
+silentaimLeft:Slider({ Name = "Wall Check Throttle", min = 1, max = 10, Default = 1, Pointer = "silent_wallcheck_throttle", Callback = function(v) SILENT_CONFIG.WallCheckThrottle = v end })
+silentaimLeft:Slider({ Name = "Prediction", min = 0, max = 1, def = 0, decimals = 0.01, pointer = "silent_pred", callback = function(v) SILENT_CONFIG.Main.Prediction.Basic = v end })
+silentaimLeft:Toggle({ Name = "Hold Check", Pointer = "silent_holdcheck", Default = false, Callback = function(v) SILENT_CONFIG.HoldCheckEnabled = v end })
+silentaimLeft:Dropdown({ Name = "Hold Check Mode", Options = {"NoSwitch", "WeaponSwitch"}, Default = "NoSwitch", Pointer = "silent_holdcheck_mode", Callback = function(v) SILENT_CONFIG.HoldCheckMode = v end })
+
+-- Silent Aim FOV Settings (Right side)
+local silentaimCombat = pageSilent:InDevSection({ Name = "FOV Settings", Side = "Right" })
 silentaimCombat:Slider({ Name = "FOV Radius", min = 10, max = 500, def = 90, pointer = "silent_fov", callback = function(v) SILENT_CONFIG.FOV.Radius = v end })
 silentaimCombat:Toggle({ Name = "Show FOV", Pointer = "silent_showfov", Default = false, Callback = function(v) SILENT_CONFIG.FOV.ShowFOV = v end })
 silentaimCombat:Toggle({ Name = "Filled", Pointer = "silent_filled", Default = false, Callback = function(v) SILENT_CONFIG.FOV.Filled = v end })
@@ -9279,16 +9598,10 @@ silentaimCombat:Toggle({ Name = "First Person Check", Pointer = "silent_firstper
     local status = v and "ENABLED (First person only)" or "DISABLED (Works in any perspective)"
     print("Euleon " .. status)
 end })
-silentaimCombat:Toggle({ Name = "Closest Point", Pointer = "silent_cp", Default = true, Callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Enabled = v end })
-silentaimCombat:Slider({ Name = "CP Scale", min = 1, max = 20, def = 5.5, decimals = 0.1, pointer = "silent_cp_scale", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Scale = v end })
-silentaimCombat:Slider({ Name = "CP Density", min = 1, max = 10, def = 2, pointer = "silent_cp_density", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Density = v end })
-silentaimCombat:Slider({ Name = "Prediction", min = 0, max = 1, def = 0, decimals = 0.01, pointer = "silent_pred", callback = function(v) SILENT_CONFIG.Main.Prediction.Basic = v end })
-silentaimCombat:Toggle({ Name = "Wall Check", Pointer = "silent_wallcheck", Default = true, Callback = function(v) SILENT_CONFIG.WallCheck = v end })
-silentaimCombat:Toggle({ Name = "Macro Disable", Pointer = "silent_macro", Default = false, Callback = function(v) SILENT_CONFIG.MacroEnabled = v end })
-silentaimCombat:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) SILENT_CONFIG.MacroKey = key end })
 silentaimCombat:Toggle({ Name = "Anti Aim Viewer", Pointer = "silent_antiaim", Default = true, Callback = function(v) SILENT_CONFIG.AntiAimViewer = v end })
 silentaimCombat:Toggle({ Name = "Weapon Check", Pointer = "silent_weaponcheck", Default = true, Callback = function(v) SILENT_CONFIG.WeaponCheck = v end })
-silentaimCombat:Toggle({ Name = "Hold Check", Pointer = "silent_holdcheck", Default = false, Callback = function(v) SILENT_CONFIG.HoldCheckEnabled = v end })
+silentaimCombat:Toggle({ Name = "Macro Disable", Pointer = "silent_macro", Default = false, Callback = function(v) SILENT_CONFIG.MacroEnabled = v end })
+silentaimCombat:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) SILENT_CONFIG.MacroKey = key end })
 
 -- Camlock Settings (Left side)
 local camlockCombat = pageCamlock:InDevSection({ Name = "Camlock Settings", Side = "Left" })
@@ -9352,42 +9665,6 @@ camlockChecks:Toggle({ Name = "Macro Disable", Pointer = "camlock_macro_enabled"
 camlockChecks:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) CAMLOCK_CONFIG.MacroKey = key end })
 
 -- ===== PREFIRE TAB =====
-local prefireMain = pagePrefire:InDevSection({ Name = "Prefire Main", Side = "Left" })
-
-prefireMain:Toggle({ Name = "Enabled", Pointer = "prefire_enabled", Default = false, Callback = function(v) PREFIRE_CONFIG.Enabled = v end })
-prefireMain:Slider({ Name = "Detection Range", min = 100, max = 5000, def = 1000, decimals = 50, pointer = "prefire_range", callback = function(v) PREFIRE_CONFIG.DetectionRange = v end })
-prefireMain:Slider({ Name = "Shot Count", min = 1, max = 10, def = 1, decimals = 1, pointer = "prefire_shotcount", callback = function(v) PREFIRE_CONFIG.ShotCount = v end })
-prefireMain:Slider({ Name = "Delay", min = 0, max = 1, def = 0, decimals = 0.01, pointer = "prefire_delay", callback = function(v) PREFIRE_CONFIG.Delay = v end })
-
--- Keybind Section
-local prefireKeybind = pagePrefire:InDevSection({ Name = "Keybind", Side = "Right" })
-
-prefireKeybind:Toggle({ Name = "Keybind Enabled", Pointer = "prefire_kb_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.KeybindEnabled = v end })
-prefireKeybind:Textbox({ Name = "Keybind Key", Pointer = "prefire_kb_key", Callback = function(v) PREFIRE_CONFIG.KeybindKey = v end, Default = "T" })
-
--- Random Delay Section
-local prefireRandomDelay = pagePrefire:InDevSection({ Name = "Random Delay", Side = "Left" })
-
-prefireRandomDelay:Toggle({ Name = "Enabled", Pointer = "prefire_rd_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.RandomDelayEnabled = v end })
-prefireRandomDelay:Slider({ Name = "Min", min = 0, max = 1, def = 0.17, decimals = 0.01, pointer = "prefire_rd_min", callback = function(v) PREFIRE_CONFIG.RandomDelayMin = v end })
-prefireRandomDelay:Slider({ Name = "Max", min = 0, max = 1, def = 0.20, decimals = 0.01, pointer = "prefire_rd_max", callback = function(v) PREFIRE_CONFIG.RandomDelayMax = v end })
-
--- Delay Presets Section
-local prefirePresets = pagePrefire:InDevSection({ Name = "Delay Presets", Side = "Right" })
-
-prefirePresets:Toggle({ Name = "Enabled", Pointer = "prefire_presets_enabled", Default = false, Callback = function(v) PREFIRE_CONFIG.DelayPresetsEnabled = v end })
-prefirePresets:Toggle({ Name = "Preset 1 Enabled", Pointer = "prefire_preset1_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.Preset1Enabled = v end })
-prefirePresets:Slider({ Name = "Preset 1 Delay", min = 0, max = 1, def = 0.20, decimals = 0.01, pointer = "prefire_preset1_delay", callback = function(v) PREFIRE_CONFIG.Preset1Delay = v end })
-prefirePresets:Toggle({ Name = "Preset 2 Enabled", Pointer = "prefire_preset2_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.Preset2Enabled = v end })
-prefirePresets:Slider({ Name = "Preset 2 Delay", min = 0, max = 1, def = 0.0, decimals = 0.01, pointer = "prefire_preset2_delay", callback = function(v) PREFIRE_CONFIG.Preset2Delay = v end })
-
--- Target Specific Section
-local prefireTargetSpecific = pagePrefire:InDevSection({ Name = "Target Specific", Side = "Left" })
-
-prefireTargetSpecific:Toggle({ Name = "Enabled", Pointer = "prefire_ts_enabled", Default = true, Callback = function(v) PREFIRE_CONFIG.TargetSpecificEnabled = v end })
-prefireTargetSpecific:Toggle({ Name = "Notifications", Pointer = "prefire_ts_notif", Default = true, Callback = function(v) PREFIRE_CONFIG.TargetSpecificNotifications = v end })
-prefireTargetSpecific:Toggle({ Name = "Stay Locked", Pointer = "prefire_ts_staylocked", Default = true, Callback = function(v) PREFIRE_CONFIG.TargetSpecificStayLocked = v end })
-
 -- ===== SPREAD MOD (EXACT FROM DNS) =====
 do
     local math_random_old
@@ -9498,49 +9775,7 @@ local function prefire_activate()
     end
 end
 
-local function update_prefire()
-    if not PREFIRE_CONFIG.Enabled then return end
-    if not prefire_armed then return end
-    
-    local ok, radius = pcall(function() return ws.Ignored.Siren.Radius end)
-    if not ok or not radius then return end
-    local lhrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
-    if not lhrp then return end
-    
-    local detection_range = PREFIRE_CONFIG.DetectionRange or 1000
-    
-    for _, obj in ipairs(radius:GetChildren()) do
-        if obj.Name ~= "BULLET_RAYS" then continue end
-        
-        local owner = obj:GetAttribute("OwnerCharacter")
-        if owner == lplr.Name then continue end
-        
-        if (obj.Position - lhrp.Position).Magnitude > detection_range then continue end
-        
-        prefire_activate()
-        return
-    end
-end
-
 -- Prefire keybind
-table.insert(EULEON_CONNECTIONS, uis.InputBegan:Connect(function(k, t)
-    if t then return end
-    if not PREFIRE_CONFIG.Enabled or not PREFIRE_CONFIG.KeybindEnabled then return end
-    
-    local kb_key = PREFIRE_CONFIG.KeybindKey:upper()
-    if k.UserInputType == Enum.UserInputType.MouseButton2 then 
-        prefire_armed = true 
-    end
-end))
-
-table.insert(EULEON_CONNECTIONS, uis.InputEnded:Connect(function(k)
-    if k.UserInputType == Enum.UserInputType.MouseButton2 then 
-        prefire_armed = false 
-    end
-end))
-
-table.insert(EULEON_CONNECTIONS, rs.Heartbeat:Connect(update_prefire))
-
 -- ===== TRYHARD ANIMATIONS =====
 table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Stepped:Connect(function()
     if MISC_CONFIG.TryhardAnimations then
