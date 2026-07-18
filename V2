@@ -8131,72 +8131,10 @@ local camlockUpdateCounter = 0  -- Throttle camlock camera updates (every other 
 local HoldCheckActive = false
 local HoldCheckTargetInFOV = nil
 local HoldCheckKilledTarget = nil
+local HoldCheckLockedTarget = nil
 local HoldCheckWeapon = nil
 
-local function UpdateHoldCheck()
-    if not SILENT_CONFIG.HoldCheckEnabled then return end
-    
-    local uis = game:GetService("UserInputService")
-    local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-    local lplr = game:GetService("Players").LocalPlayer
-    local currentWeapon = lplr.Character and lplr.Character:FindFirstChildOfClass("Tool")
-    local currentWeaponName = currentWeapon and currentWeapon.Name or ""
-    
-    -- JUST PRESSED
-    if isHoldingLMB and not HoldCheckActive then
-        HoldCheckActive = true
-        HoldCheckWeapon = currentWeaponName
-        HoldCheckKilledTarget = nil
-        HoldCheckTargetInFOV = nil
-    end
-    
-    -- HOLDING
-    if isHoldingLMB and HoldCheckActive then
-        -- Find who I'm aiming at (in FOV)
-        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-            if player ~= lplr and IsAlive(player) and InSilentFOV(player) then
-                HoldCheckTargetInFOV = player
-                break
-            end
-        end
-        
-        -- Check if my target got K.O'd (I killed them)
-        if HoldCheckTargetInFOV then
-            local be = HoldCheckTargetInFOV.Character and HoldCheckTargetInFOV.Character:FindFirstChild("BodyEffects")
-            if be then
-                local ko = be:FindFirstChild("K.O")
-                if ko and ko.Value then
-                    HoldCheckKilledTarget = HoldCheckTargetInFOV  -- I KILLED THIS TARGET
-                end
-            end
-        end
-        
-        -- If I killed someone, check mode
-        if HoldCheckKilledTarget then
-            if SILENT_CONFIG.HoldCheckMode == "NoSwitch" then
-                return true  -- BLOCK AIM
-            elseif SILENT_CONFIG.HoldCheckMode == "WeaponSwitch" then
-                if currentWeaponName == HoldCheckWeapon then
-                    return true  -- BLOCK AIM (same weapon)
-                else
-                    HoldCheckKilledTarget = nil  -- Weapon changed, unblock
-                    return false
-                end
-            end
-        end
-    end
-    
-    -- RELEASED
-    if not isHoldingLMB and HoldCheckActive then
-        HoldCheckActive = false
-        HoldCheckKilledTarget = nil
-        HoldCheckTargetInFOV = nil
-        HoldCheckWeapon = nil
-        return false
-    end
-    
-    return false
-end
+
 local HVH_CachedAimPosition = nil
 local HVH_CachedAimPart = nil
 
@@ -8616,13 +8554,52 @@ local function UpdateCachedAim()
     
     SilentTarget = GetSilentTarget()
     
-    -- CHECK HOLD CHECK - block aim if needed
-    if UpdateHoldCheck() then
-        SilentTarget = nil  -- Block aim
+    -- HOLD CHECK: Keep locked to same target until they get K.O'd, then stop aiming
+    if SILENT_CONFIG.HoldCheckEnabled then
+        local uis = game:GetService("UserInputService")
+        local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+        
+        -- Just pressed mouse
+        if isHoldingLMB and not HoldCheckActive then
+            HoldCheckActive = true
+            HoldCheckLockedTarget = SilentTarget  -- Lock to current target
+        end
+        
+        -- Holding
+        if isHoldingLMB and HoldCheckActive then
+            if HoldCheckLockedTarget then
+                -- Check if locked target got K.O'd
+                local isKO = false
+                if HoldCheckLockedTarget.Character then
+                    local be = HoldCheckLockedTarget.Character:FindFirstChild("BodyEffects")
+                    if be then
+                        local ko = be:FindFirstChild("K.O")
+                        if ko and ko.Value then
+                            isKO = true  -- TARGET IS K.O'd
+                        end
+                    end
+                end
+                
+                if isKO then
+                    -- Target got K.O'd, stop targeting anyone
+                    SilentTarget = nil
+                    -- Stay in hold state but don't lock to anyone new
+                else
+                    -- Target still alive, keep locking to them
+                    SilentTarget = HoldCheckLockedTarget
+                end
+            end
+        end
+        
+        -- Released mouse
+        if not isHoldingLMB then
+            HoldCheckActive = false
+            HoldCheckLockedTarget = nil
+        end
     end
     
     if not SilentTarget or not SilentTarget.Character then return end
-    if not SILENT_CONFIG.HoldCheckEnabled and not IsAlive(SilentTarget) then return end
+    if not IsAlive(SilentTarget) then return end
     
     if SILENT_CONFIG.Main.AutoLock.Enabled and SILENT_CONFIG.Main.AutoLock.Mode == "FOV" then
         if not InSilentFOV(SilentTarget) then return end
