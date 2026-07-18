@@ -140,7 +140,7 @@ repeat
     wait()
 until game:IsLoaded()
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "V2",Text = "loading",Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "V2.5",Text = "loading",Duration = 3.6})
 
 local gamerawmetatable = getrawmetatable(game)
 setreadonly(gamerawmetatable, false)
@@ -5984,7 +5984,7 @@ return library, library.pointers, theme
 end
 
 local library = retlibrary():New({ 
-    Name = "Euleon - V2",
+    Name = "Euleon - V2.5",
     Size = Vector2.new(550,601)
 })
 
@@ -7080,11 +7080,11 @@ movementMisc:Toggle({Name = "Bunny Hop", Default = false, Pointer = "bhopenabled
 end})
 movementMisc:Slider({Name = "Bunny Hop Speed", Minimum = 25, Maximum = 150, Default = 25, Decimals = 0.1, Suffix = "", Pointer = "bhop_speed"})
 
-local exploitsMisc = pageMisc:MultiSection({ Sections = {"Exploits"}, Side = "Right" })
+local exploitsMisc, instaKillMisc, tracerMisc = pageMisc:MultiSection({ Sections = {"Exploits", "Insta Kill", "Tracer"}, Side = "Right", Size = 180 })
 --exploitsMisc:Toggle({Name = "Anti-Aimviewer", Default = false, Pointer = "antiaimviewerenabled"})
 exploitsMisc:Toggle({Name = "No Jump Cooldown", Default = false, Pointer = "nojumpcooldownenabled"})
 exploitsMisc:Toggle({Name = "No Slowdown", Default = false, Pointer = "noslowdownenabled"})
-exploitsMisc:Toggle({Name = "Tryhard Animations", Default = false, Pointer = "tryhardanims", Callback = function(v) MISC_CONFIG.TryhardAnimations = v end})
+
 
 --[[
 local shoot__assetid__audio = "3124331820"
@@ -7620,7 +7620,7 @@ end)
 --// desktop fixed this btw
 if library:Initialize() then library:Initialize() end
 
-game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V2",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Euleon V2.5",Text = string.format("Took %ss", math.round((tick() - loadtick)) * 1000 / 1000),Duration = 3.6})
 -- ===== AUTO SECTION WITH REAL HVH EXPLOIT =====
 local SelectedTarget = nil
 local TeleportActive = false
@@ -8007,6 +8007,8 @@ local SILENT_CONFIG = {
     MacroKey = Enum.KeyCode.M,
     HoldCheckEnabled = false,
     HoldCheckMode = "NoSwitch",  -- "NoSwitch" = don't switch targets in same press, "WeaponSwitch" = allow if weapon changes
+    FOVOnly = false,  -- Only calculate for targets in FOV circle
+    ClosestPartMode = false,  -- Use closest part instead of closest point
 }
 
 local CAMLOCK_CONFIG = {
@@ -8034,16 +8036,37 @@ local CAMLOCK_CONFIG = {
 }
 
 local MISC_CONFIG = {
-    TryhardAnimations = false,
+
     SpreadModEnabled = false,
     SpreadModAmount = 50,
     MemorySpoofEnabled = false,
     MemorySpoofMin = 500,
     MemorySpoofMax = 800,
+    InstaKillEnabled = false,
+    InstaKillSpeed = 0.1,
+    InstaKillRange = 50,
+    InstaKillEnableKey = Enum.KeyCode.V,
+    InstaKillDisableKey = Enum.KeyCode.B,
+    InstaKillActive = false,
+    SilentAimTracerEnabled = false,
+    SilentAimTracerColor = Color3.fromRGB(0, 255, 0),
 }
 
 -- ===== CONFIG SAVE/LOAD SYSTEM =====
 local CONFIG_PATH = "euleon_config.json"
+
+local function MergeConfig(target, source)
+    if type(source) ~= "table" then return source end
+    
+    for k, v in pairs(source) do
+        if type(v) == "table" and type(target[k]) == "table" then
+            MergeConfig(target[k], v)
+        else
+            target[k] = v
+        end
+    end
+    return target
+end
 
 local function SaveConfig()
     local config_data = {
@@ -8072,29 +8095,17 @@ local function LoadConfig()
         end)
         
         if ok and config_data then
-            -- Load Silent Config
+            -- Load Silent Config with proper merging
             if config_data.SILENT then
-                for k, v in pairs(config_data.SILENT) do
-                    SILENT_CONFIG[k] = v
-                end
+                MergeConfig(SILENT_CONFIG, config_data.SILENT)
             end
-            -- Load Camlock Config
+            -- Load Camlock Config with proper merging
             if config_data.CAMLOCK then
-                for k, v in pairs(config_data.CAMLOCK) do
-                    CAMLOCK_CONFIG[k] = v
-                end
+                MergeConfig(CAMLOCK_CONFIG, config_data.CAMLOCK)
             end
-            -- Load Misc Config
+            -- Load Misc Config with proper merging
             if config_data.MISC then
-                for k, v in pairs(config_data.MISC) do
-                    MISC_CONFIG[k] = v
-                end
-            end
-            -- Load Prefire Config
-            if config_data.PREFIRE then
-                for k, v in pairs(config_data.PREFIRE) do
-                    PREFIRE_CONFIG[k] = v
-                end
+                MergeConfig(MISC_CONFIG, config_data.MISC)
             end
             print("Euleon")
             return true
@@ -8103,8 +8114,8 @@ local function LoadConfig()
     return false
 end
 
--- Load config on startup
-LoadConfig()
+
+
 
 -- Spread Mod Section
 exploitsMisc:Toggle({Name = "Spread Mod", Default = false, Pointer = "spreadmod_enabled", Callback = function(v) MISC_CONFIG.SpreadModEnabled = v end})
@@ -8114,6 +8125,24 @@ exploitsMisc:Slider({Name = "Spread Mod Amount", min = 0, max = 200, def = 50, d
 exploitsMisc:Toggle({Name = "Memory Spoofer", Default = false, Pointer = "memspoof_enabled", Callback = function(v) MISC_CONFIG.MemorySpoofEnabled = v end})
 exploitsMisc:Slider({Name = "Memory Min", min = 100, max = 2000, def = 500, decimals = 1, pointer = "memmin", callback = function(v) MISC_CONFIG.MemorySpoofMin = v end})
 exploitsMisc:Slider({Name = "Memory Max", min = 100, max = 2000, def = 800, decimals = 1, pointer = "memmax", callback = function(v) MISC_CONFIG.MemorySpoofMax = v end})
+
+-- Insta Kill Settings (moved to separate section)
+instaKillMisc:Toggle({Name = "Insta Kill", Default = false, Pointer = "instakill_enabled", Callback = function(v) MISC_CONFIG.InstaKillEnabled = v end})
+instaKillMisc:Slider({Name = "Insta Kill Speed", min = 0.05, max = 0.3, def = 0.1, decimals = 0.01, pointer = "instakill_speed", callback = function(v) MISC_CONFIG.InstaKillSpeed = v end})
+instaKillMisc:Slider({Name = "Insta Kill Range", min = 10, max = 200, def = 50, decimals = 5, pointer = "instakill_range", callback = function(v) MISC_CONFIG.InstaKillRange = v end})
+instaKillMisc:Keybind({Name = "Insta Kill Enable", Keybind = Enum.KeyCode.V, Callback = function(key) MISC_CONFIG.InstaKillEnableKey = key end})
+instaKillMisc:Keybind({Name = "Insta Kill Disable", Keybind = Enum.KeyCode.B, Callback = function(key) MISC_CONFIG.InstaKillDisableKey = key end})
+
+-- Silent Aim Tracer Settings (moved to separate section)
+tracerMisc:Toggle({Name = "Silent Aim Tracer", Default = false, Pointer = "silenttracer_enabled", Callback = function(v) MISC_CONFIG.SilentAimTracerEnabled = v end})
+tracerMisc:Dropdown({Name = "Tracer Color", Options = {"Green", "Red", "Blue", "Yellow", "Cyan"}, Default = "Green", Pointer = "silenttracer_color", Callback = function(v)
+    if v == "Green" then MISC_CONFIG.SilentAimTracerColor = Color3.fromRGB(0, 255, 0)
+    elseif v == "Red" then MISC_CONFIG.SilentAimTracerColor = Color3.fromRGB(255, 0, 0)
+    elseif v == "Blue" then MISC_CONFIG.SilentAimTracerColor = Color3.fromRGB(0, 0, 255)
+    elseif v == "Yellow" then MISC_CONFIG.SilentAimTracerColor = Color3.fromRGB(255, 255, 0)
+    elseif v == "Cyan" then MISC_CONFIG.SilentAimTracerColor = Color3.fromRGB(0, 255, 255)
+    end
+end})
 
 local CachedAimPart, CachedAimPosition, SilentTarget = nil, nil, nil
 
@@ -8131,10 +8160,72 @@ local camlockUpdateCounter = 0  -- Throttle camlock camera updates (every other 
 local HoldCheckActive = false
 local HoldCheckTargetInFOV = nil
 local HoldCheckKilledTarget = nil
-local HoldCheckLockedTarget = nil
 local HoldCheckWeapon = nil
 
-
+local function UpdateHoldCheck()
+    if not SILENT_CONFIG.HoldCheckEnabled then return end
+    
+    local uis = game:GetService("UserInputService")
+    local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+    local lplr = game:GetService("Players").LocalPlayer
+    local currentWeapon = lplr.Character and lplr.Character:FindFirstChildOfClass("Tool")
+    local currentWeaponName = currentWeapon and currentWeapon.Name or ""
+    
+    -- JUST PRESSED
+    if isHoldingLMB and not HoldCheckActive then
+        HoldCheckActive = true
+        HoldCheckWeapon = currentWeaponName
+        HoldCheckKilledTarget = nil
+        HoldCheckTargetInFOV = nil
+    end
+    
+    -- HOLDING
+    if isHoldingLMB and HoldCheckActive then
+        -- Find who I'm aiming at (in FOV)
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= lplr and IsAlive(player) and InSilentFOV(player) then
+                HoldCheckTargetInFOV = player
+                break
+            end
+        end
+        
+        -- Check if my target got K.O'd (I killed them)
+        if HoldCheckTargetInFOV then
+            local be = HoldCheckTargetInFOV.Character and HoldCheckTargetInFOV.Character:FindFirstChild("BodyEffects")
+            if be then
+                local ko = be:FindFirstChild("K.O")
+                if ko and ko.Value then
+                    HoldCheckKilledTarget = HoldCheckTargetInFOV  -- I KILLED THIS TARGET
+                end
+            end
+        end
+        
+        -- If I killed someone, check mode
+        if HoldCheckKilledTarget then
+            if SILENT_CONFIG.HoldCheckMode == "NoSwitch" then
+                return true  -- BLOCK AIM
+            elseif SILENT_CONFIG.HoldCheckMode == "WeaponSwitch" then
+                if currentWeaponName == HoldCheckWeapon then
+                    return true  -- BLOCK AIM (same weapon)
+                else
+                    HoldCheckKilledTarget = nil  -- Weapon changed, unblock
+                    return false
+                end
+            end
+        end
+    end
+    
+    -- RELEASED
+    if not isHoldingLMB and HoldCheckActive then
+        HoldCheckActive = false
+        HoldCheckKilledTarget = nil
+        HoldCheckTargetInFOV = nil
+        HoldCheckWeapon = nil
+        return false
+    end
+    
+    return false
+end
 local HVH_CachedAimPosition = nil
 local HVH_CachedAimPart = nil
 
@@ -8153,7 +8244,7 @@ local function UpdateHVHAim()
 end
 local FOV_Circle, FOV_Box = nil, nil
 local FOV_Circle_Outline, FOV_Box_Outline = nil, nil
-local R15_PARTS = {"Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"}
+local R15_PARTS = {"Head","LeftArm","RightArm","LowerTorso","UpperTorso","LeftFoot","RightFoot","RightUpperFoot","LeftUpperFoot"}
 
 local function DrawFOV()
     local fov = SILENT_CONFIG.FOV
@@ -8182,7 +8273,7 @@ local function DrawFOV()
     local cam = game:GetService("Workspace").CurrentCamera
     local uis = game:GetService("UserInputService")
     local mousePos = uis:GetMouseLocation()
-    local cursorPos = Vector2.new(mousePos.X, mousePos.Y + 50)  -- +50 offset to match targeting
+    local cursorPos = Vector2.new(mousePos.X, mousePos.Y)  -- Centered cursor for FOV
     
     -- Use color picker values if available, otherwise use config
     local fovColor = fov.Color
@@ -8459,7 +8550,39 @@ local function GetClosestPlayerSpherical()
 end
 
 local function GetSilentTarget()
-    if SelectedTarget and IsAlive(SelectedTarget) then return SelectedTarget end
+    if SelectedTarget and IsAlive(SelectedTarget) then 
+        -- FOV-only mode: check if selected target is in FOV
+        if SILENT_CONFIG.FOVOnly and not InSilentFOV(SelectedTarget) then
+            return nil
+        end
+        return SelectedTarget 
+    end
+    
+    -- FOV-only mode: only return targets in FOV
+    if SILENT_CONFIG.FOVOnly then
+        local closest = nil
+        local minDist = math.huge
+        local lplr = game:GetService("Players").LocalPlayer
+        local cam = game:GetService("Workspace").CurrentCamera
+        local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+        local cursorPos = Vector2.new(mousePos.X, mousePos.Y)
+        
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= lplr and IsAlive(player) and InSilentFOV(player) then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local screenPos = cam:WorldToViewportPoint(hrp.Position)
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - cursorPos).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        closest = player
+                    end
+                end
+            end
+        end
+        return closest
+    end
+    
     return GetClosestPlayerSpherical()
 end
 
@@ -8483,7 +8606,28 @@ local function GetSilentAimPosition(character)
     local cp_cfg = s.ClosestPoint
     local bp, bpos
     
-    if cp_cfg.Enabled then
+    -- CLOSEST PART MODE: Pick single closest part from list
+    if SILENT_CONFIG.ClosestPartMode then
+        local cam = game:GetService("Workspace").CurrentCamera
+        local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+        local cursorPos = Vector2.new(mousePos.X, mousePos.Y)
+        local minDist = math.huge
+        
+        for _, partName in ipairs(R15_PARTS) do
+            local part = character:FindFirstChild(partName)
+            if part and part:IsA("BasePart") then
+                local screenPos = cam:WorldToViewportPoint(part.Position)
+                if screenPos.Z > 0 then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - cursorPos).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        bp = part
+                        bpos = part.Position
+                    end
+                end
+            end
+        end
+    elseif cp_cfg.Enabled then
         local r = GetClosestPointAdvanced(character, cp_cfg)
         if r then bp = r.Part; bpos = r.Position end
     end
@@ -8554,52 +8698,13 @@ local function UpdateCachedAim()
     
     SilentTarget = GetSilentTarget()
     
-    -- HOLD CHECK: Keep locked to same target until they get K.O'd, then stop aiming
-    if SILENT_CONFIG.HoldCheckEnabled then
-        local uis = game:GetService("UserInputService")
-        local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-        
-        -- Just pressed mouse
-        if isHoldingLMB and not HoldCheckActive then
-            HoldCheckActive = true
-            HoldCheckLockedTarget = SilentTarget  -- Lock to current target
-        end
-        
-        -- Holding
-        if isHoldingLMB and HoldCheckActive then
-            if HoldCheckLockedTarget then
-                -- Check if locked target got K.O'd
-                local isKO = false
-                if HoldCheckLockedTarget.Character then
-                    local be = HoldCheckLockedTarget.Character:FindFirstChild("BodyEffects")
-                    if be then
-                        local ko = be:FindFirstChild("K.O")
-                        if ko and ko.Value then
-                            isKO = true  -- TARGET IS K.O'd
-                        end
-                    end
-                end
-                
-                if isKO then
-                    -- Target got K.O'd, stop targeting anyone
-                    SilentTarget = nil
-                    -- Stay in hold state but don't lock to anyone new
-                else
-                    -- Target still alive, keep locking to them
-                    SilentTarget = HoldCheckLockedTarget
-                end
-            end
-        end
-        
-        -- Released mouse
-        if not isHoldingLMB then
-            HoldCheckActive = false
-            HoldCheckLockedTarget = nil
-        end
+    -- CHECK HOLD CHECK - block aim if needed
+    if UpdateHoldCheck() then
+        SilentTarget = nil  -- Block aim
     end
     
     if not SilentTarget or not SilentTarget.Character then return end
-    if not IsAlive(SilentTarget) then return end
+    if not SILENT_CONFIG.HoldCheckEnabled and not IsAlive(SilentTarget) then return end
     
     if SILENT_CONFIG.Main.AutoLock.Enabled and SILENT_CONFIG.Main.AutoLock.Mode == "FOV" then
         if not InSilentFOV(SilentTarget) then return end
@@ -9542,12 +9647,13 @@ end))
 local silentaimLeft = pageSilent:InDevSection({ Name = "Silent Aim", Side = "Left" })
 
 silentaimLeft:Toggle({ Name = "Enabled", Pointer = "silent_enabled", Default = true, Callback = function(v) SILENT_CONFIG.Enabled = v end })
-silentaimLeft:Dropdown({ Name = "Distance Optimization", Options = {"Disabled", "150 Studs", "200 Studs", "300 Studs", "400 Studs"}, Default = "Disabled", Pointer = "silent_distcull", Callback = function(v) 
-    if v == "Disabled" then SILENT_CONFIG.DistanceCull = 0
-    elseif v == "150 Studs" then SILENT_CONFIG.DistanceCull = 150
-    elseif v == "200 Studs" then SILENT_CONFIG.DistanceCull = 200
-    elseif v == "300 Studs" then SILENT_CONFIG.DistanceCull = 300
-    elseif v == "400 Studs" then SILENT_CONFIG.DistanceCull = 400
+silentaimLeft:Dropdown({ Name = "Distance Optimization", Options = {"Disabled", "FOV Only", "150 Studs", "200 Studs", "300 Studs", "400 Studs"}, Default = "Disabled", Pointer = "silent_distcull", Callback = function(v) 
+    if v == "Disabled" then SILENT_CONFIG.DistanceCull = 0; SILENT_CONFIG.FOVOnly = false
+    elseif v == "FOV Only" then SILENT_CONFIG.DistanceCull = 0; SILENT_CONFIG.FOVOnly = true
+    elseif v == "150 Studs" then SILENT_CONFIG.DistanceCull = 150; SILENT_CONFIG.FOVOnly = false
+    elseif v == "200 Studs" then SILENT_CONFIG.DistanceCull = 200; SILENT_CONFIG.FOVOnly = false
+    elseif v == "300 Studs" then SILENT_CONFIG.DistanceCull = 300; SILENT_CONFIG.FOVOnly = false
+    elseif v == "400 Studs" then SILENT_CONFIG.DistanceCull = 400; SILENT_CONFIG.FOVOnly = false
     end
 end })
 silentaimLeft:Toggle({ Name = "Client Bullet", Pointer = "silent_clientbullet", Default = true, Callback = function(v) SILENT_CONFIG.ClientBullet.Enabled = v end })
@@ -9555,6 +9661,7 @@ silentaimLeft:Dropdown({ Name = "CB Mode", Options = {"Normal", "Sniper", "Legit
 silentaimLeft:Toggle({ Name = "Closest Point", Pointer = "silent_cp", Default = true, Callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Enabled = v end })
 silentaimLeft:Slider({ Name = "CP Scale", min = 1, max = 20, def = 5.5, decimals = 0.1, pointer = "silent_cp_scale", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Scale = v end })
 silentaimLeft:Slider({ Name = "CP Density", min = 1, max = 10, def = 2, pointer = "silent_cp_density", callback = function(v) SILENT_CONFIG.Main.ClosestPoint.Density = v end })
+silentaimLeft:Toggle({ Name = "Closest Part", Pointer = "silent_closest_part", Default = false, Callback = function(v) SILENT_CONFIG.ClosestPartMode = v end })
 silentaimLeft:Toggle({ Name = "Wall Check", Pointer = "silent_wallcheck", Default = true, Callback = function(v) SILENT_CONFIG.WallCheck = v end })
 silentaimLeft:Slider({ Name = "Wall Check Throttle", min = 1, max = 10, Default = 1, Pointer = "silent_wallcheck_throttle", Callback = function(v) SILENT_CONFIG.WallCheckThrottle = v end })
 silentaimLeft:Slider({ Name = "Prediction", min = 0, max = 1, def = 0, decimals = 0.01, pointer = "silent_pred", callback = function(v) SILENT_CONFIG.Main.Prediction.Basic = v end })
@@ -9593,7 +9700,7 @@ camlockCombat:Toggle({ Name = "Shake", Pointer = "camlock_shake", Default = true
 camlockCombat:Slider({ Name = "Shake Value", min = 0, max = 10, def = 1, decimals = 0.1, pointer = "camlock_shakevalue", callback = function(v) CAMLOCK_CONFIG.ShakeValue = v end })
 
 -- Prediction (Right side)
-local camlockPred = pageCamlock:InDevSection({ Name = "Prediction", Side = "Right" })
+local camlockPred = pageCamlock:InDevSection({ Name = "Prediction & Targeting", Side = "Right" })
 
 camlockPred:Toggle({ Name = "Prediction Enabled", Pointer = "camlock_pred_enabled", Default = true, Callback = function(v) CAMLOCK_CONFIG.Prediction.Enabled = v end })
 camlockPred:Slider({ Name = "Prediction", min = 0, max = 1, def = 0.135, decimals = 0.01, pointer = "camlock_pred", callback = function(v) CAMLOCK_CONFIG.Prediction.Basic = v end })
@@ -9602,16 +9709,13 @@ camlockPred:Slider({ Name = "Close", min = 0, max = 1, def = 0.1, decimals = 0.0
 camlockPred:Slider({ Name = "Mid", min = 0, max = 1, def = 0.135, decimals = 0.01, pointer = "camlock_pred_mid", callback = function(v) CAMLOCK_CONFIG.Prediction.Distance.Mid = v end })
 camlockPred:Slider({ Name = "Far", min = 0, max = 1, def = 0.15, decimals = 0.01, pointer = "camlock_pred_far", callback = function(v) CAMLOCK_CONFIG.Prediction.Distance.Far = v end })
 
--- Targeting (Right side)
-local camlockTarget = pageCamlock:InDevSection({ Name = "Targeting", Side = "Right" })
-
-camlockTarget:Toggle({ Name = "Closest Point", Pointer = "camlock_cp", Default = true, Callback = function(v) CAMLOCK_CONFIG.ClosestPoint.Enabled = v end })
-camlockTarget:Toggle({ Name = "Closest Part Only", Pointer = "camlock_closestpart", Default = false, Callback = function(v) CAMLOCK_CONFIG.ClosestPart.Enabled = v end })
-camlockTarget:Slider({ Name = "CP Scale", min = 1, max = 20, def = 5.5, decimals = 0.1, pointer = "camlock_cp_scale", callback = function(v) CAMLOCK_CONFIG.ClosestPoint.Scale = v end })
-camlockTarget:Slider({ Name = "CP Density", min = 1, max = 10, def = 2, pointer = "camlock_cp_density", callback = function(v) CAMLOCK_CONFIG.ClosestPoint.Density = v end })
+camlockPred:Toggle({ Name = "Closest Point", Pointer = "camlock_cp", Default = true, Callback = function(v) CAMLOCK_CONFIG.ClosestPoint.Enabled = v end })
+camlockPred:Toggle({ Name = "Closest Part Only", Pointer = "camlock_closestpart", Default = false, Callback = function(v) CAMLOCK_CONFIG.ClosestPart.Enabled = v end })
+camlockPred:Slider({ Name = "CP Scale", min = 1, max = 20, def = 5.5, decimals = 0.1, pointer = "camlock_cp_scale", callback = function(v) CAMLOCK_CONFIG.ClosestPoint.Scale = v end })
+camlockPred:Slider({ Name = "CP Density", min = 1, max = 10, def = 2, pointer = "camlock_cp_density", callback = function(v) CAMLOCK_CONFIG.ClosestPoint.Density = v end })
 
 -- FOV (Right side)
-local camlockFOV = pageCamlock:InDevSection({ Name = "FOV", Side = "Right" })
+local camlockFOV = pageCamlock:InDevSection({ Name = "FOV Settings", Side = "Right" })
 
 camlockFOV:Toggle({ Name = "Enabled", Pointer = "camlock_fov_enabled", Default = true, Callback = function(v) CAMLOCK_CONFIG.FOV.Enabled = v end })
 camlockFOV:Slider({ Name = "Radius", min = 10, max = 500, def = 90, pointer = "camlock_fov_radius", callback = function(v) CAMLOCK_CONFIG.FOV.Radius = v end })
@@ -9640,6 +9744,9 @@ camlockChecks:Toggle({ Name = "Wall Check", Pointer = "camlock_wallcheck", Defau
 -- Macro Check
 camlockChecks:Toggle({ Name = "Macro Disable", Pointer = "camlock_macro_enabled", Default = false, Callback = function(v) CAMLOCK_CONFIG.MacroEnabled = v end })
 camlockChecks:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback = function(key) CAMLOCK_CONFIG.MacroKey = key end })
+
+-- Load config on startup (AFTER GUI is created)
+LoadConfig()
 
 -- ===== PREFIRE TAB =====
 -- ===== SPREAD MOD (EXACT FROM DNS) =====
@@ -9752,17 +9859,101 @@ local function prefire_activate()
     end
 end
 
--- Prefire keybind
--- ===== TRYHARD ANIMATIONS =====
-table.insert(EULEON_CONNECTIONS, game:GetService("RunService").Stepped:Connect(function()
-    if MISC_CONFIG.TryhardAnimations then
-        local character = game.Players.LocalPlayer.Character
-        if character and character:FindFirstChild("Animate") then
-            character.Animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
-            character.Animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
-            character.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+-- ===== INSTA KILL - RAPID GUN SWITCHING =====
+local function RunInstaKill()
+    local uis = game:GetService("UserInputService")
+    
+    -- Handle enable/disable keybinds
+    if uis:IsKeyDown(MISC_CONFIG.InstaKillEnableKey) then
+        MISC_CONFIG.InstaKillActive = true
+    end
+    if uis:IsKeyDown(MISC_CONFIG.InstaKillDisableKey) then
+        MISC_CONFIG.InstaKillActive = false
+        return
+    end
+    
+    if not MISC_CONFIG.InstaKillActive then return end
+    
+    local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+    if not isHoldingLMB then return end
+    
+    -- Check if cursor is over GUI
+    if library.MouseOverWindow then return end
+    
+    local lplr = game:GetService("Players").LocalPlayer
+    if not lplr.Character then return end
+    
+    local hrp = lplr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    -- Find closest target in FOV within range
+    local closestDist = MISC_CONFIG.InstaKillRange
+    local closestPlayer = nil
+    
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= lplr and player.Character then
+            local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp and IsAlive(player) and InSilentFOV(player) then
+                local dist = (hrp.Position - targetHrp.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestPlayer = player
+                end
+            end
         end
     end
+    
+    if not closestPlayer then return end
+    
+    -- Switch guns
+    local backpack = lplr:FindFirstChild("Backpack")
+    if not backpack then return end
+    
+    local currentTime = tick()
+    if not _G.InstaKillLastSwitch then _G.InstaKillLastSwitch = 0 end
+    if not _G.InstaKillGunIndex then _G.InstaKillGunIndex = 1 end
+    
+    if currentTime - _G.InstaKillLastSwitch >= MISC_CONFIG.InstaKillSpeed then
+        _G.InstaKillLastSwitch = currentTime
+        
+        local dbgun = backpack:FindFirstChild("[Double-Barrel SG]") or lplr.Character:FindFirstChild("[Double-Barrel SG]")
+        local tacgun = backpack:FindFirstChild("[TacticalShotgun]") or lplr.Character:FindFirstChild("[TacticalShotgun]")
+        
+        if dbgun and tacgun then
+            if _G.InstaKillGunIndex == 1 then
+                pcall(function() dbgun.Parent = backpack end)
+                pcall(function() tacgun.Parent = lplr.Character end)
+                _G.InstaKillGunIndex = 2
+            else
+                pcall(function() tacgun.Parent = backpack end)
+                pcall(function() dbgun.Parent = lplr.Character end)
+                _G.InstaKillGunIndex = 1
+            end
+        end
+    end
+end
+
+table.insert(EULEON_CONNECTIONS, game:GetService("RunService").RenderStepped:Connect(function()
+    RunInstaKill()
+end))
+
+-- ===== SILENT AIM TRACER =====
+_G.silentAimTracer = nil
+_G.silentAimTracerCam = game:GetService("Workspace").CurrentCamera
+
+table.insert(EULEON_CONNECTIONS, game:GetService("RunService").RenderStepped:Connect(function()
+    if not MISC_CONFIG.SilentAimTracerEnabled or not CachedAimPosition or not _G.silentAimTracerCam then
+        if _G.silentAimTracer then pcall(function() _G.silentAimTracer:Remove() end) _G.silentAimTracer = nil end
+        return
+    end
+    
+    if not _G.silentAimTracer then _G.silentAimTracer = Drawing.new("Line") _G.silentAimTracer.Thickness = 2 end
+    
+    local sp = _G.silentAimTracerCam:WorldToViewportPoint(CachedAimPosition)
+    _G.silentAimTracer.From = Vector2.new(_G.silentAimTracerCam.ViewportSize.X / 2, _G.silentAimTracerCam.ViewportSize.Y / 2)
+    _G.silentAimTracer.To = Vector2.new(sp.X, sp.Y)
+    _G.silentAimTracer.Color = MISC_CONFIG.SilentAimTracerColor
+    _G.silentAimTracer.Visible = sp.Z > 0
 end))
 
 -- Save config on script exit
