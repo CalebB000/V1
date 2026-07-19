@@ -6371,9 +6371,6 @@ getgenv().esp = {
 
     enabled = false,
 
-    fading = false,
-    espfadespeed = 5,
-
     box = false,
     boxcolor = Color3.fromRGB(255,255,255),
     boxoutline = Color3.fromRGB(0,0,0),
@@ -6413,19 +6410,34 @@ spawn(LPH_JIT_ULTRA(function()
                 if not drawingInstances then continue end
     
                 if esp.enabled then
-                    local character = v.Character
-                    local _, onscreen = camera:WorldToScreenPoint(character.HumanoidRootPart.Position)
-                    local distfromchar = (camera.CFrame.Position - v.Character.HumanoidRootPart.Position).Magnitude
-                    if esp.renderdistance < distfromchar then 
-                        drawingInstances.Box.Visible = false
-                        drawingInstances.BoxOutline.Visible = false
-                        drawingInstances.Health.Visible = false
-                        drawingInstances.HealthOutline.Visible = false
-                        drawingInstances.Cham.Parent = nil
-                        drawingInstances.Name.Visible = false
-                        drawingInstances.HealthText.Visible = false
-                    else
-                        if onscreen then
+                    if not _G.ESPFilteredPlayers then _G.ESPFilteredPlayers = {} end
+                    
+                    local shouldRender = true
+                    -- If filter is enabled, ONLY render if player is in selected list
+                    if esp.filter_enabled then
+                        shouldRender = false
+                        for _, selectedName in pairs(_G.ESPFilteredPlayers) do
+                            if v.Name == selectedName then
+                                shouldRender = true
+                                break
+                            end
+                        end
+                    end
+                    
+                    if shouldRender then
+                        local character = v.Character
+                        local _, onscreen = camera:WorldToScreenPoint(character.HumanoidRootPart.Position)
+                        local distfromchar = (camera.CFrame.Position - v.Character.HumanoidRootPart.Position).Magnitude
+                        if esp.renderdistance < distfromchar then 
+                            drawingInstances.Box.Visible = false
+                            drawingInstances.BoxOutline.Visible = false
+                            drawingInstances.Health.Visible = false
+                            drawingInstances.HealthOutline.Visible = false
+                            drawingInstances.Cham.Parent = nil
+                            drawingInstances.Name.Visible = false
+                            drawingInstances.HealthText.Visible = false
+                        else
+                            if onscreen then
                             local charhum2D = camera:WorldToViewportPoint(character.HumanoidRootPart.Position)
                             local charSize = (camera:WorldToViewportPoint(character.HumanoidRootPart.Position - Vector3.new(0, 3, 0)).Y - camera:WorldToViewportPoint(character.HumanoidRootPart.Position + Vector3.new(0, 2.6, 0)).Y) / 2
                             local boxSize = Vector2.new(math.floor(charSize * 1.1), math.floor(charSize * 1.9))
@@ -6440,13 +6452,8 @@ spawn(LPH_JIT_ULTRA(function()
                                 drawingInstances.BoxOutline.Position = boxPosition
                                 drawingInstances.BoxOutline.Visible = true
                                 drawingInstances.BoxOutline.Color = esp.boxoutline
-                                if esp.fading then
-                                    drawingInstances.Box.Transparency = 1 - (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                    drawingInstances.BoxOutline.Transparency = 1 - (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                else
-                                    drawingInstances.Box.Transparency = 1 - esp.boxtransparency
-                                    drawingInstances.BoxOutline.Transparency = 1 - esp.boxoutlinetransparency
-                                end
+                                drawingInstances.Box.Transparency = 1 - esp.boxtransparency
+                                drawingInstances.BoxOutline.Transparency = 1 - esp.boxoutlinetransparency
                             else
                                 drawingInstances.Box.Visible = false
                                 drawingInstances.BoxOutline.Visible = false
@@ -6462,13 +6469,8 @@ spawn(LPH_JIT_ULTRA(function()
                                 drawingInstances.HealthOutline.Color = esp.healthoutline
                                 drawingInstances.HealthOutline.Visible = true
             
-                                if esp.fading then
-                                    drawingInstances.Health.Transparency = 1 - (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                    drawingInstances.HealthOutline.Transparency = 1 - (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                else
-                                    drawingInstances.Health.Transparency = 1 - esp.healthtransparency
-                                    drawingInstances.HealthOutline.Transparency = 1 - esp.healthoutlinetransparency
-                                end
+                                drawingInstances.Health.Transparency = 1 - esp.healthtransparency
+                                drawingInstances.HealthOutline.Transparency = 1 - esp.healthoutlinetransparency
                                 if esp.healthbartext then
                                     drawingInstances.HealthText.Visible = true
                                     drawingInstances.HealthText.Text = string.format("%s", math.round(character.Humanoid.Health) .. "%")
@@ -6476,11 +6478,7 @@ spawn(LPH_JIT_ULTRA(function()
                                     drawingInstances.HealthText.Color = esp.healthbartextcolor
                                     drawingInstances.HealthText.OutlineColor = esp.healthbartextoutline
                                     drawingInstances.HealthText.Font = Drawing.Fonts.Plex
-                                    if esp.fading then
-                                        drawingInstances.HealthText.Transparency = 1 - (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                    else
-                                        drawingInstances.HealthText.Transparency = 1 - esp.healthbartexttransparency
-                                    end
+                                    drawingInstances.HealthText.Transparency = 1 - esp.healthbartexttransparency
                                 else
                                     drawingInstances.HealthText.Visible = false
                                 end
@@ -6493,13 +6491,8 @@ spawn(LPH_JIT_ULTRA(function()
                                 drawingInstances.Cham.Parent = character
                                 drawingInstances.Cham.FillColor = esp.chamscolor
                                 drawingInstances.Cham.OutlineColor = esp.chamsoutline
-                                if esp.fading then
-                                    drawingInstances.Cham.FillTransparency = (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                    drawingInstances.Cham.OutlineTransparency = (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                else
-                                    drawingInstances.Cham.FillTransparency = esp.chamstransparencyinline
-                                    drawingInstances.Cham.OutlineTransparency = esp.chamstransparencyoutline
-                                end
+                                drawingInstances.Cham.FillTransparency = esp.chamstransparencyinline
+                                drawingInstances.Cham.OutlineTransparency = esp.chamstransparencyoutline
                             else
                                 drawingInstances.Cham.Parent = nil
                             end
@@ -6510,23 +6503,29 @@ spawn(LPH_JIT_ULTRA(function()
                                 drawingInstances.Name.Color = esp.namecolor
                                 drawingInstances.Name.OutlineColor = esp.nameoutline
                                 drawingInstances.Name.Font = Drawing.Fonts.Plex
-                                if esp.fading then
-                                    drawingInstances.Name.Transparency = 1 - (math.sin(tick() * esp.espfadespeed) + 1) / 2
-                                else
-                                    drawingInstances.Name.Transparency = 1 - esp.nametransparency
-                                end
+                                drawingInstances.Name.Transparency = 1 - esp.nametransparency
                             else
                                 drawingInstances.Name.Visible = false
                             end
-                        else
-                            drawingInstances.Box.Visible = false
-                            drawingInstances.BoxOutline.Visible = false
-                            drawingInstances.Health.Visible = false
-                            drawingInstances.HealthOutline.Visible = false
-                            drawingInstances.Cham.Parent = nil
-                            drawingInstances.Name.Visible = false
-                            drawingInstances.HealthText.Visible = false
+                            else
+                                drawingInstances.Box.Visible = false
+                                drawingInstances.BoxOutline.Visible = false
+                                drawingInstances.Health.Visible = false
+                                drawingInstances.HealthOutline.Visible = false
+                                drawingInstances.Cham.Parent = nil
+                                drawingInstances.Name.Visible = false
+                                drawingInstances.HealthText.Visible = false
+                            end
                         end
+                    else
+                        -- Player is filtered out - hide ESP
+                        drawingInstances.Box.Visible = false
+                        drawingInstances.BoxOutline.Visible = false
+                        drawingInstances.Health.Visible = false
+                        drawingInstances.HealthOutline.Visible = false
+                        drawingInstances.Cham.Parent = nil
+                        drawingInstances.Name.Visible = false
+                        drawingInstances.HealthText.Visible = false
                     end
                 else
                     drawingInstances.Box.Visible = false
@@ -6702,13 +6701,137 @@ espVisuals:Slider({Name = "Render Distance", min = 1, max = 1000, def = 1000, su
     esp.renderdistance = value
 end})
 
-espVisuals:Toggle({ Name = "ESP Fade", Default = false, Pointer = "^fade", callback = function(state)
-    esp.fading = state
+-- ESP Players Filter Toggle
+espVisuals:Toggle({Name = "Filter Players (ESP Only)", Default = false, Pointer = "^espfilter", callback = function(v)
+    esp.filter_enabled = v
+    if not v then
+        _G.ESPFilteredPlayers = {}  -- Clear filter when turned off
+    end
 end})
 
-espVisuals:Slider({Name = "ESP Fade Speed", min = 1, max = 10, def = 5, suffix = "*", decimals = 0.1, pointer = "^espfadespeed", callback = function(value)
-    esp.espfadespeed = value
-end})
+-- Get player list for dropdown
+local function GetPlayerNames()
+    local names = {}
+    local lplr = game:GetService("Players").LocalPlayer
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= lplr then
+            table.insert(names, player.Name)
+        end
+    end
+    return names
+end
+
+-- Initialize filtered players table
+if not _G.ESPFilteredPlayers then _G.ESPFilteredPlayers = {} end
+if not _G.ESPSearchText then _G.ESPSearchText = "" end
+
+-- Get closest matching player name
+local function FindClosestPlayer(searchText)
+    if not searchText or searchText == "" then return nil end
+    
+    local players = game:GetService("Players"):GetPlayers()
+    local lplr = game:GetService("Players").LocalPlayer
+    searchText = searchText:lower()
+    
+    -- Exact match on username first
+    for _, player in pairs(players) do
+        if player ~= lplr and player.Name:lower() == searchText then
+            return player.Name
+        end
+    end
+    
+    -- Exact match on display name
+    for _, player in pairs(players) do
+        if player ~= lplr and player.DisplayName:lower() == searchText then
+            return player.Name
+        end
+    end
+    
+    -- Partial match on display name (starts with)
+    for _, player in pairs(players) do
+        if player ~= lplr and player.DisplayName:lower():sub(1, #searchText) == searchText then
+            return player.Name
+        end
+    end
+    
+    -- Partial match on username (starts with)
+    for _, player in pairs(players) do
+        if player ~= lplr and player.Name:lower():sub(1, #searchText) == searchText then
+            return player.Name
+        end
+    end
+    
+    return nil
+end
+
+
+-- Create separate ESP Targets section in Visuals
+local espTargets = pageVisuals:Section({ Name = "ESP Targets" })
+
+-- Search and target player
+espTargets:Textbox({
+    Name = "Search Player",
+    Default = "",
+    Pointer = "^esp_search",
+    Callback = function(v)
+        _G.ESPSearchText = v
+    end
+})
+
+espTargets:Button({
+    Name = "Target Player",
+    Callback = function()
+        local targetName = FindClosestPlayer(_G.ESPSearchText)
+        if targetName then
+            -- Check if already in list
+            local alreadyExists = false
+            for _, name in pairs(_G.ESPFilteredPlayers) do
+                if name == targetName then
+                    alreadyExists = true
+                    break
+                end
+            end
+            
+            if not alreadyExists then
+                table.insert(_G.ESPFilteredPlayers, targetName)
+                print("Added " .. targetName .. " to ESP targets")
+            end
+            _G.ESPSearchText = ""
+        end
+    end
+})
+
+espTargets:Button({
+    Name = "Reset Targets",
+    Callback = function()
+        _G.ESPFilteredPlayers = {}
+    end
+})
+
+espTargets:Label({Text = "Targeted Players:"})
+
+-- Display current targets with delete buttons
+local function UpdateTargetDisplay()
+    for _, targetedName in pairs(_G.ESPFilteredPlayers) do
+        espTargets:Button({
+            Name = "✕ " .. targetedName,
+            Callback = function()
+                -- Remove from filter
+                local newList = {}
+                for _, name in pairs(_G.ESPFilteredPlayers) do
+                    if name ~= targetedName then
+                        table.insert(newList, name)
+                    end
+                end
+                _G.ESPFilteredPlayers = newList
+            end
+        })
+    end
+end
+
+UpdateTargetDisplay()
+
+
 
 local miscVisuals, crosshairVisuals = pageVisuals:MultiSection({ Sections = {"Misc", "Crosshair"}, Side = "Right", Size = 160 })
 
@@ -6949,52 +7072,7 @@ atmosphereVisuals:Toggle({ Name = "Brightness", Pointer = "brightnessx", callbac
 end})
 atmosphereVisuals:Slider({Name = "Brightness Amount",min = 1, max = 10, def = old__brightness, suffix = "", decimals = 1, pointer = "brightnessamt" })
 
-local characterVisuals, spectatorVisuals = pageVisuals:MultiSection({ Sections = {"Character", "Spectator"}, Side = "Left" })
-
-local charactervisualEvent = event.new("cvEvent")
-local oldchar__color = {}
-local charchams_toggle = characterVisuals:Toggle({ Name = "Material", Pointer = "charactermaterialActive", callback = function(state)
-    if state then
-        for i, v in next, localplayer.Character:GetDescendants() do
-            if v:IsA("BasePart") then
-                table.insert(oldchar__color, {v, v.Color})
-            end
-            if v:IsA("MeshPart") then
-                table.insert(oldchar__color, {v, v.Color})
-            end
-        end
-
-        characterconnection = charactervisualEvent:bindConnection(runservice.Heartbeat, "characterconnection", LPH_JIT_ULTRA(function()
-            for i, v in next, localplayer.Character:GetDescendants() do
-                if v:IsA("BasePart") then
-                    if v.Material == library.pointers["charactermaterial"]:get() and v.Color == library.pointers.charactercolor:get().Color then else
-                        v.Material = library.pointers["charactermaterial"]:get()
-                        v.Color = library.pointers.charactercolor:get().Color
-                    end
-                end
-            end
-        end))
-    else
-        if characterconnection then charactervisualEvent:unbindConnection("characterconnection") end
-        for i, v in next, localplayer.Character:GetDescendants() do
-            if v:IsA("BasePart") then
-                v.Material = Enum.Material.Plastic
-            end
-            if v:IsA("MeshPart") then
-                v.Material = Enum.Material.Plastic
-            end
-        end
-        for i, v in next, oldchar__color do
-            for i2, v2 in next, localplayer.Character:GetDescendants() do
-                if v2 == v[1] then
-                    v2.Color = v[2]
-                end
-            end
-        end
-    end
-end})
-charchams_toggle:Colorpicker({Name = "Material Color", Info = "Color", Default = Color3.fromRGB(153,0.3,255), Pointer = "charactercolor"})
-characterVisuals:Dropdown({ Name = "Material", Options = {"Plastic", "SmoothPlastic", "ForceField"}, Default = "Plastic", Pointer = "charactermaterial" })
+local spectatorVisuals = pageVisuals:Section({ Name = "Spectator", Side = "Left" })
 
 local spectatorvisualEvent = event.new("svEvent")
 
@@ -7080,7 +7158,7 @@ movementMisc:Toggle({Name = "Bunny Hop", Default = false, Pointer = "bhopenabled
 end})
 movementMisc:Slider({Name = "Bunny Hop Speed", Minimum = 25, Maximum = 150, Default = 25, Decimals = 0.1, Suffix = "", Pointer = "bhop_speed"})
 
-local exploitsMisc, instaKillMisc, tracerMisc = pageMisc:MultiSection({ Sections = {"Exploits", "Insta Kill", "Tracer"}, Side = "Right", Size = 180 })
+local exploitsMisc, tracerMisc = pageMisc:MultiSection({ Sections = {"Exploits", "Tracer"}, Side = "Right", Size = 180 })
 --exploitsMisc:Toggle({Name = "Anti-Aimviewer", Default = false, Pointer = "antiaimviewerenabled"})
 exploitsMisc:Toggle({Name = "No Jump Cooldown", Default = false, Pointer = "nojumpcooldownenabled"})
 exploitsMisc:Toggle({Name = "No Slowdown", Default = false, Pointer = "noslowdownenabled"})
@@ -8126,14 +8204,7 @@ exploitsMisc:Toggle({Name = "Memory Spoofer", Default = false, Pointer = "memspo
 exploitsMisc:Slider({Name = "Memory Min", min = 100, max = 2000, def = 500, decimals = 1, pointer = "memmin", callback = function(v) MISC_CONFIG.MemorySpoofMin = v end})
 exploitsMisc:Slider({Name = "Memory Max", min = 100, max = 2000, def = 800, decimals = 1, pointer = "memmax", callback = function(v) MISC_CONFIG.MemorySpoofMax = v end})
 
--- Insta Kill Settings (moved to separate section)
-instaKillMisc:Toggle({Name = "Insta Kill", Default = false, Pointer = "instakill_enabled", Callback = function(v) MISC_CONFIG.InstaKillEnabled = v end})
-instaKillMisc:Slider({Name = "Insta Kill Speed", min = 0.05, max = 0.3, def = 0.1, decimals = 0.01, pointer = "instakill_speed", callback = function(v) MISC_CONFIG.InstaKillSpeed = v end})
-instaKillMisc:Slider({Name = "Insta Kill Range", min = 10, max = 200, def = 50, decimals = 5, pointer = "instakill_range", callback = function(v) MISC_CONFIG.InstaKillRange = v end})
-instaKillMisc:Keybind({Name = "Insta Kill Enable", Keybind = Enum.KeyCode.V, Callback = function(key) MISC_CONFIG.InstaKillEnableKey = key end})
-instaKillMisc:Keybind({Name = "Insta Kill Disable", Keybind = Enum.KeyCode.B, Callback = function(key) MISC_CONFIG.InstaKillDisableKey = key end})
-
--- Silent Aim Tracer Settings (moved to separate section)
+-- Tracer Settings (moved to separate section)
 tracerMisc:Toggle({Name = "Silent Aim Tracer", Default = false, Pointer = "silenttracer_enabled", Callback = function(v) MISC_CONFIG.SilentAimTracerEnabled = v end})
 tracerMisc:Dropdown({Name = "Tracer Color", Options = {"Green", "Red", "Blue", "Yellow", "Cyan"}, Default = "Green", Pointer = "silenttracer_color", Callback = function(v)
     if v == "Green" then MISC_CONFIG.SilentAimTracerColor = Color3.fromRGB(0, 255, 0)
@@ -8551,24 +8622,42 @@ end
 
 local function GetSilentTarget()
     if SelectedTarget and IsAlive(SelectedTarget) then 
-        -- FOV-only mode: check if selected target is in FOV
         if SILENT_CONFIG.FOVOnly and not InSilentFOV(SelectedTarget) then
             return nil
         end
+        
+        -- EVEN IF SELECTED: reject if behind wall and wall check is ON
+        if SILENT_CONFIG.Main.WallCheck then
+            local head = SelectedTarget.Character and SelectedTarget.Character:FindFirstChild("Head")
+            if head and not DoWallCheck(head) then
+                return nil  -- Behind wall - reject even if selected
+            end
+        end
+        
         return SelectedTarget 
     end
     
-    -- FOV-only mode: only return targets in FOV
-    if SILENT_CONFIG.FOVOnly then
-        local closest = nil
-        local minDist = math.huge
-        local lplr = game:GetService("Players").LocalPlayer
-        local cam = game:GetService("Workspace").CurrentCamera
-        local mousePos = game:GetService("UserInputService"):GetMouseLocation()
-        local cursorPos = Vector2.new(mousePos.X, mousePos.Y)
-        
-        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-            if player ~= lplr and IsAlive(player) and InSilentFOV(player) then
+    -- Auto-target: ONLY pick from visible targets (not behind walls)
+    local closest = nil
+    local minDist = math.huge
+    local lplr = game:GetService("Players").LocalPlayer
+    local cam = game:GetService("Workspace").CurrentCamera
+    local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+    local cursorPos = Vector2.new(mousePos.X, mousePos.Y)
+    
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= lplr and IsAlive(player) and InSilentFOV(player) then
+            -- FIRST: Check if player is behind wall - if yes, completely skip
+            local isVisible = true
+            if SILENT_CONFIG.Main.WallCheck then
+                local head = player.Character and player.Character:FindFirstChild("Head")
+                if head and not DoWallCheck(head) then
+                    isVisible = false
+                end
+            end
+            
+            -- ONLY consider visible players for targeting
+            if isVisible then
                 local hrp = player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then
                     local screenPos = cam:WorldToViewportPoint(hrp.Position)
@@ -8580,10 +8669,9 @@ local function GetSilentTarget()
                 end
             end
         end
-        return closest
     end
     
-    return GetClosestPlayerSpherical()
+    return closest
 end
 
 local function IsInFirstPerson()
@@ -8698,12 +8786,21 @@ local function UpdateCachedAim()
     
     SilentTarget = GetSilentTarget()
     
-    -- CHECK HOLD CHECK - block aim if needed
-    if UpdateHoldCheck() then
-        SilentTarget = nil  -- Block aim
-    end
-    
     if not SilentTarget or not SilentTarget.Character then return end
+    
+    -- CHECK IF TARGET IS DEAD (Hold Check) - only block if K.O flag is true
+    if SILENT_CONFIG.HoldCheckEnabled then
+        local be = SilentTarget.Character:FindFirstChild("BodyEffects")
+        if be then
+            local ko = be:FindFirstChild("K.O")
+            if ko and ko.Value then
+                -- Target is K.O'd, stop aiming
+                CachedAimPart = nil
+                CachedAimPosition = nil
+                return
+            end
+        end
+    end
     if not SILENT_CONFIG.HoldCheckEnabled and not IsAlive(SilentTarget) then return end
     
     if SILENT_CONFIG.Main.AutoLock.Enabled and SILENT_CONFIG.Main.AutoLock.Mode == "FOV" then
@@ -9747,27 +9844,9 @@ camlockChecks:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback =
 
 -- Load config on startup (AFTER GUI is created)
 LoadConfig()
+MISC_CONFIG.InstaKillActive = false  -- Always start disabled
 
--- ===== PREFIRE TAB =====
--- ===== SPREAD MOD (EXACT FROM DNS) =====
-do
-    local math_random_old
-    math_random_old = hookfunction(math.random, newcclosure(function(...)
-        if checkcaller() then return math_random_old(...) end
-        if MISC_CONFIG.SpreadModEnabled then
-            local args   = {...}
-            local a1, a2 = args[1], args[2]
-            if (#args == 0) or (a1 == -0.05 and a2 == 0.05) or (a1 == -0.1) or (a1 == -0.05) then
-                return math_random_old(...) * (MISC_CONFIG.SpreadModAmount / 100)
-            end
-        end
-        return math_random_old(...)
-    end))
-end
-
--- ===== MEMORY SPOOFER (ALWAYS HOOK, CHECK FLAG INSIDE) =====
-task.spawn(function()
-    local Memory
+-- ===== SILENT AIM TRACER =====
     for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
         if v.Name == "PS_Button" and v.StatsMiniTextPanelClass.TitleLabel.Text == "Mem" then
             Memory = v.StatsMiniTextPanelClass.ValueLabel
@@ -9783,7 +9862,6 @@ task.spawn(function()
             Memory.Text = string.format("%.2f MB", Random)
         end)
     end
-end)
 
 -- ===== SILENT AIM MACRO CHECK =====
 local OriginalUpdateCachedAim = UpdateCachedAim
@@ -9799,143 +9877,6 @@ function UpdateCachedAim()
     -- Call original function
     return OriginalUpdateCachedAim()
 end
-
--- ===== PREFIRE IMPLEMENTATION =====
-local prefire_armed = false
-local prefire_firing = false
-
-local function prefire_activate()
-    if prefire_firing then return end
-    local char = lplr.Character
-    if not char then return end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then return end
-    prefire_firing = true
-    
-    local delay_time = PREFIRE_CONFIG.Delay
-    local shot_count = PREFIRE_CONFIG.ShotCount or 1
-    
-    -- Handle delay presets
-    if PREFIRE_CONFIG.DelayPresetsEnabled then
-        local current_preset = PREFIRE_CONFIG.CurrentPreset or 0
-        if current_preset == 1 and PREFIRE_CONFIG.Preset1Enabled then
-            delay_time = PREFIRE_CONFIG.Preset1Delay or 0
-        elseif current_preset == 2 and PREFIRE_CONFIG.Preset2Enabled then
-            delay_time = PREFIRE_CONFIG.Preset2Delay or 0
-        elseif current_preset == 0 then
-            -- Use random delay
-            if PREFIRE_CONFIG.RandomDelayEnabled then
-                local min_d = PREFIRE_CONFIG.RandomDelayMin or 0.17
-                local max_d = PREFIRE_CONFIG.RandomDelayMax or 0.20
-                delay_time = min_d + (math.random() * (max_d - min_d))
-            else
-                delay_time = PREFIRE_CONFIG.Delay
-            end
-        end
-    elseif PREFIRE_CONFIG.RandomDelayEnabled then
-        local min_d = PREFIRE_CONFIG.RandomDelayMin or 0.17
-        local max_d = PREFIRE_CONFIG.RandomDelayMax or 0.20
-        delay_time = min_d + (math.random() * (max_d - min_d))
-    end
-    
-    if delay_time > 0 then
-        task.delay(delay_time, function()
-            for i = 1, shot_count do
-                tool:Activate()
-                if i < shot_count then
-                    task.wait(0.05)
-                end
-            end
-            prefire_firing = false
-        end)
-    else
-        for i = 1, shot_count do
-            tool:Activate()
-            if i < shot_count then
-                task.wait(0.05)
-            end
-        end
-        prefire_firing = false
-    end
-end
-
--- ===== INSTA KILL - RAPID GUN SWITCHING =====
-local function RunInstaKill()
-    local uis = game:GetService("UserInputService")
-    
-    -- Handle enable/disable keybinds
-    if uis:IsKeyDown(MISC_CONFIG.InstaKillEnableKey) then
-        MISC_CONFIG.InstaKillActive = true
-    end
-    if uis:IsKeyDown(MISC_CONFIG.InstaKillDisableKey) then
-        MISC_CONFIG.InstaKillActive = false
-        return
-    end
-    
-    if not MISC_CONFIG.InstaKillActive then return end
-    
-    local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-    if not isHoldingLMB then return end
-    
-    -- Check if cursor is over GUI
-    if library.MouseOverWindow then return end
-    
-    local lplr = game:GetService("Players").LocalPlayer
-    if not lplr.Character then return end
-    
-    local hrp = lplr.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    -- Find closest target in FOV within range
-    local closestDist = MISC_CONFIG.InstaKillRange
-    local closestPlayer = nil
-    
-    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        if player ~= lplr and player.Character then
-            local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if targetHrp and IsAlive(player) and InSilentFOV(player) then
-                local dist = (hrp.Position - targetHrp.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestPlayer = player
-                end
-            end
-        end
-    end
-    
-    if not closestPlayer then return end
-    
-    -- Switch guns
-    local backpack = lplr:FindFirstChild("Backpack")
-    if not backpack then return end
-    
-    local currentTime = tick()
-    if not _G.InstaKillLastSwitch then _G.InstaKillLastSwitch = 0 end
-    if not _G.InstaKillGunIndex then _G.InstaKillGunIndex = 1 end
-    
-    if currentTime - _G.InstaKillLastSwitch >= MISC_CONFIG.InstaKillSpeed then
-        _G.InstaKillLastSwitch = currentTime
-        
-        local dbgun = backpack:FindFirstChild("[Double-Barrel SG]") or lplr.Character:FindFirstChild("[Double-Barrel SG]")
-        local tacgun = backpack:FindFirstChild("[TacticalShotgun]") or lplr.Character:FindFirstChild("[TacticalShotgun]")
-        
-        if dbgun and tacgun then
-            if _G.InstaKillGunIndex == 1 then
-                pcall(function() dbgun.Parent = backpack end)
-                pcall(function() tacgun.Parent = lplr.Character end)
-                _G.InstaKillGunIndex = 2
-            else
-                pcall(function() tacgun.Parent = backpack end)
-                pcall(function() dbgun.Parent = lplr.Character end)
-                _G.InstaKillGunIndex = 1
-            end
-        end
-    end
-end
-
-table.insert(EULEON_CONNECTIONS, game:GetService("RunService").RenderStepped:Connect(function()
-    RunInstaKill()
-end))
 
 -- ===== SILENT AIM TRACER =====
 _G.silentAimTracer = nil
