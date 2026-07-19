@@ -8234,7 +8234,7 @@ local HoldCheckKilledTarget = nil
 local HoldCheckWeapon = nil
 
 local function UpdateHoldCheck()
-    if not SILENT_CONFIG.HoldCheckEnabled then return end
+    if not SILENT_CONFIG.HoldCheckEnabled then return false end
     
     local uis = game:GetService("UserInputService")
     local isHoldingLMB = uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
@@ -8627,7 +8627,7 @@ local function GetSilentTarget()
         end
         
         -- EVEN IF SELECTED: reject if behind wall and wall check is ON
-        if SILENT_CONFIG.Main.WallCheck then
+        if SILENT_CONFIG.WallCheck then
             local head = SelectedTarget.Character and SelectedTarget.Character:FindFirstChild("Head")
             if head and not DoWallCheck(head) then
                 return nil  -- Behind wall - reject even if selected
@@ -8649,7 +8649,7 @@ local function GetSilentTarget()
         if player ~= lplr and IsAlive(player) and InSilentFOV(player) then
             -- FIRST: Check if player is behind wall - if yes, completely skip
             local isVisible = true
-            if SILENT_CONFIG.Main.WallCheck then
+            if SILENT_CONFIG.WallCheck then
                 local head = player.Character and player.Character:FindFirstChild("Head")
                 if head and not DoWallCheck(head) then
                     isVisible = false
@@ -8754,9 +8754,17 @@ local function IsRevolverEquipped()
     return tool.Name:lower():find("revolver") ~= nil or tool.Name == "Revolver"
 end
 
+local AimBlockedByKO = false  -- Track if aim is blocked due to K.O
+
 local function UpdateCachedAim()
     -- DRAW FOV FIRST - must always run regardless of target status
     DrawFOV()
+    
+    -- Check if mouse was released - if so, reset K.O block
+    local uis = game:GetService("UserInputService")
+    if not uis:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        AimBlockedByKO = false
+    end
     
     CachedAimPart = nil
     CachedAimPosition = nil
@@ -8784,23 +8792,24 @@ local function UpdateCachedAim()
     -- LegitSniper mode: only activate with revolver
     if SILENT_CONFIG.ClientBullet.Mode == "LegitSniper" and not IsRevolverEquipped() then return end
     
-    SilentTarget = GetSilentTarget()
-    
-    if not SilentTarget or not SilentTarget.Character then return end
-    
-    -- CHECK IF TARGET IS DEAD (Hold Check) - only block if K.O flag is true
-    if SILENT_CONFIG.HoldCheckEnabled then
+    -- Check if CURRENT target is K.O'd BEFORE getting new target
+    if SILENT_CONFIG.HoldCheckEnabled and SilentTarget and SilentTarget.Character then
         local be = SilentTarget.Character:FindFirstChild("BodyEffects")
         if be then
             local ko = be:FindFirstChild("K.O")
             if ko and ko.Value then
-                -- Target is K.O'd, stop aiming
-                CachedAimPart = nil
-                CachedAimPosition = nil
-                return
+                AimBlockedByKO = true
             end
         end
     end
+    
+    -- If K.O block is active, stop aiming (don't switch targets)
+    if AimBlockedByKO then return end
+    
+    SilentTarget = GetSilentTarget()
+    
+    if not SilentTarget or not SilentTarget.Character then return end
+    
     if not SILENT_CONFIG.HoldCheckEnabled and not IsAlive(SilentTarget) then return end
     
     if SILENT_CONFIG.Main.AutoLock.Enabled and SILENT_CONFIG.Main.AutoLock.Mode == "FOV" then
@@ -9845,6 +9854,22 @@ camlockChecks:Keybind({ Name = "Macro Key", Keybind = Enum.KeyCode.M, Callback =
 -- Load config on startup (AFTER GUI is created)
 LoadConfig()
 MISC_CONFIG.InstaKillActive = false  -- Always start disabled
+
+-- ===== SPREAD MOD HOOK =====
+do
+    local math_random_old
+    math_random_old = hookfunction(math.random, newcclosure(function(...)
+        if checkcaller() then return math_random_old(...) end
+        if MISC_CONFIG.SpreadModEnabled then
+            local args   = {...}
+            local a1, a2 = args[1], args[2]
+            if (#args == 0) or (a1 == -0.05 and a2 == 0.05) or (a1 == -0.1) or (a1 == -0.05) then
+                return math_random_old(...) * (MISC_CONFIG.SpreadModAmount / 100)
+            end
+        end
+        return math_random_old(...)
+    end))
+end
 
 -- ===== SILENT AIM TRACER =====
     for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
